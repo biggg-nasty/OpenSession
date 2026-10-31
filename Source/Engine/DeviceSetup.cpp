@@ -30,21 +30,27 @@ juce::String AudioSettingsSummary::toMultiLineString() const
 namespace DeviceSetup
 {
 
-void configureInputsForRecording (te::Engine& engine)
+static juce::StringArray& configuredInputNames()
+{
+    static juce::StringArray names;   // one engine per process
+    return names;
+}
+
+static void applyInputDefaults (te::Engine& engine, bool onlyNewInputs)
 {
     auto& dm = engine.getDeviceManager();
 
-    // One mono engine input per hardware channel: a track then picks "Input 1", "Input 2"...
-    // Stereo pairs can be created from the settings panel when wanted.
-    dm.setAllWaveInputsToNumChannels (1);
-    dm.dispatchPendingUpdates();
-
     for (auto* wi : dm.getWaveInputDevices())
     {
-        if (wi == nullptr)
+        if (wi == nullptr || (onlyNewInputs && configuredInputNames().contains (wi->getName())))
             continue;
 
-        dm.setDeviceEnabled (*wi, true);
+        configuredInputNames().addIfNotAlreadyThere (wi->getName());
+
+        // The engine rebuilds its whole device list on every setDeviceEnabled call, even when nothing
+        // changes, so only call it when the input really is disabled.
+        if (! wi->isEnabled())
+            dm.setDeviceEnabled (*wi, true);
 
         if (wi->getBitDepth() != preferredBitDepth && wi->getAvailableBitDepths().contains (preferredBitDepth))
             wi->setBitDepth (preferredBitDepth);
@@ -57,6 +63,22 @@ void configureInputsForRecording (te::Engine& engine)
     }
 
     dm.dispatchPendingUpdates();
+}
+
+void configureInputsForRecording (te::Engine& engine)
+{
+    auto& dm = engine.getDeviceManager();
+
+    // One mono engine input per hardware channel: a track then picks "Input 1", "Input 2"...
+    // Stereo pairs can be created from the settings panel when wanted.
+    dm.setAllWaveInputsToNumChannels (1);
+    dm.dispatchPendingUpdates();
+    applyInputDefaults (engine, false);
+}
+
+void configureNewInputs (te::Engine& engine)
+{
+    applyInputDefaults (engine, true);
 }
 
 juce::String applyPreferredSampleRate (te::Engine& engine)

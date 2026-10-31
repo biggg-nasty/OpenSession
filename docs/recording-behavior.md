@@ -14,7 +14,7 @@ This document links observable recording behaviour in four reference DAWs to wha
 
 Reference versions: Logic Pro for Mac 12.3 user guide; Ableton Reference Manual Version 12; Pro Tools Reference Guide 2026.4 (PDF); "Up and Running: A REAPER User Guide v7.84" (PDF from reaper.fm).
 
-**Verification column.** Test titles are the exact `TEST_CASE` names in `Source/Tests/*.cpp`, run headlessly with `OpenSession --run-tests` against the engine's hosted audio device (synthetic input, no hardware). Current result: 34 test cases, 526 assertions, all passing. Hardware status is one of:
+**Verification column.** Test titles are the exact `TEST_CASE` names in `Source/Tests/*.cpp`, run headlessly with `OpenSession --run-tests` against the engine's hosted audio device (synthetic input, no hardware). Current result: 35 test cases, 535 assertions, all passing. Hardware status is one of:
 
 - `hardware: verified on MacBook Pro built-in mic, macOS 27.0.1` (CoreAudio, 48 kHz, 512-frame buffer, 1 input channel)
 - `hardware: not yet verified (no external interface attached)`

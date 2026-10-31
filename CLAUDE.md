@@ -22,6 +22,7 @@ The test suite is compiled into the app; doctest filters pass through (`-tc="*Re
 
 - **Never modify the submodule.** Work around engine behaviour in `Source/Engine/*` and record the workaround in `HANDOFF.md` §5.
 - Engine stop listener fires twice per stop; `RecordingController` de-duplicates. Keep that guard.
+- Device-manager change callbacks must use `DeviceSetup::configureNewInputs` and never change the device list unconditionally: the engine rebuilds on every `setDeviceEnabled`, which looped forever and stopped playback. After touching device code, launch the GUI and check the log shows a single "Rebuilding Wave Device List...".
 - MIDI rescan interval is 0 on purpose: the engine's periodic rescan aborted takes mid-recording.
 - The session path resolver accepts both `Audio/x.wav` and `../Audio/x.wav`; re-run the session tests after touching it.
 - Engine `getDestinationRecordingFile` returns its error message *as a `juce::File`* (missing `tl::unexpected`), so a read-only Audio folder makes the engine write a WAV named after the error text in the current directory. `RecordingController::checkRecordingDestination` must keep running before every `record()`.

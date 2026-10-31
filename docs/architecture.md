@@ -59,7 +59,7 @@ Real-time rules: all disk I/O for recordings happens on the engine's `WaveInputR
 | `Session/DemoContent` | Synthesised demo and soak material we own (Karplus-Strong plucks, sine bass, noise drums, formant tone, steady tones) |
 | `UI/*` | All components: transport bar, track headers (input chooser, R, MON, M, S, input and output meters), timeline with ruler/grid/zoom/scroll/playhead/recording overlay/take lanes, clip component (waveform, trim, move, fades, gain, context menu), mixer strips with generic plugin parameter editor, audio settings panel with calibration, status bar, theme |
 | `App/*`, `Main.cpp` | Menus, commands and shortcuts, session lifecycle with save prompts, export dialogs, recovery prompts, command-line modes (`--run-tests`, `--export-mix`, `--export-stems`, `--print-audio-settings`, `--smoke-record`, `--measure-latency`, `--make-demo`, `--soak`), file + stderr logging |
-| `Tests/*` | 34 deterministic test cases (526 assertions) covering recording, editing, mix/export and session behaviour through the hosted device |
+| `Tests/*` | 35 deterministic test cases (535 assertions) covering recording, editing, mix/export and session behaviour through the hosted device |
 
 ## Data flow for one take
 

@@ -43,6 +43,13 @@ namespace DeviceSetup
         the overlay merge mode (new recordings become new clips - we handle take muting ourselves). */
     void configureInputsForRecording (te::Engine&);
 
+    /** Applies the same recording defaults, but only to inputs not configured yet in this run, and
+        without forcing mono (a stereo pair or MON setting the user chose survives device rebuilds).
+        Use this from device-change callbacks: when nothing is new it changes nothing, so it cannot
+        trigger another rebuild (re-applying everything there looped the engine's device list rebuild
+        forever and kept playback from starting). */
+    void configureNewInputs (te::Engine&);
+
     /** Tries to switch the current device to the preferred sample rate if available. Returns an
         error string if the change was requested but failed. */
     juce::String applyPreferredSampleRate (te::Engine&);

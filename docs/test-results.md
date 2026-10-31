@@ -7,8 +7,8 @@ _Run on 2026-10-31. Machine: MacBook Pro (arm64), macOS 27.0.1, Apple clang 21, 
 The suite runs the real engine with its `HostedAudioDeviceInterface`: we push synthetic input buffers through the actual recording pipeline, files are written to a temporary session folder, and results are read back from disk. Log: `logs/tests5.log` (local).
 
 ```
-[doctest] test cases:  34 |  34 passed | 0 failed | 0 skipped
-[doctest] assertions: 526 | 526 passed | 0 failed |
+[doctest] test cases:  35 |  35 passed | 0 failed | 0 skipped
+[doctest] assertions: 535 | 535 passed | 0 failed |
 [doctest] Status: SUCCESS!
 ```
 
@@ -41,6 +41,7 @@ The suite runs the real engine with its `HostedAudioDeviceInterface`: we push sy
 | Missing file detection | Session: missing audio is detected and the session still opens | pass |
 | Interrupted-recording recovery (unfinalised header) | Session: a WAV whose header was never finalised… ; Session: an orphaned recording… | pass; header repaired, audio intact within −80 dBFS, placed at BWAV time |
 | Export tail and click-while-recording-only persist with the session | Session: export tail and click-while-recording-only are stored in the session and survive reopening | pass (5 s tail and flag restored; tail clamped to 0..30 s) |
+| Device changes do not loop the device list or stop playback | Devices: re-applying input defaults on device changes settles and leaves playback running | pass (≤ 4 notifications after a provoked change, transport still playing and advancing); with the old behaviour restored it fails: 3106 notifications, transport stopped at 0 s |
 | Deleting a region never erases the source | Session: deleting a clip from the timeline never deletes its recording | pass |
 
 ## 2. Hardware (built-in microphone, this Mac)
@@ -65,11 +66,11 @@ Machine: MacBook Air (Mac15,12, arm64), macOS 26.6.2, Apple clang 17.0.0, CMake 
 
 | Check | Command / method | Result |
 |---|---|---|
-| Self-test suite, Release build | `--run-tests` | **pass**: 34 / 34 cases, 526 / 526 assertions |
+| Self-test suite, Release build | `--run-tests` | **pass**: 35 / 35 cases, 535 / 535 assertions (after the device-rebuild fix below) |
 | Record a real input, Release build | `--smoke-record <scratch>/Smoke.osession 6` | **pass**: `Smoke_input_20261031-141123_01.wav`, 48 000 Hz, 1 ch, 24-bit, 283 145 frames = 5.899 s, peak −4.2 dBFS, clip at 0 s, session saved; `afinfo` reads a valid 24-bit WAVE of 5.8989 s |
 | Device facts reported | `--print-audio-settings` | CoreAudio; buffer 512 frames = 10.67 ms; driver-reported latency in 2993 + out 1606 frames = 95.81 ms round trip; engine record adjustment 95.81 ms (driver-derived) |
 | Demo session generation and export | `--make-demo demo/DemoSession.osession 48`, `--export-mix`, `--export-stems` | **pass**: mix and 4 stems all 50.00 s (48 s + 2 s default tail), 2 ch; mix peak −1.4 dBFS, no clipping |
-| GUI launch on the demo session, Release build | app launched with the session path, observed 8 s | **pass**: session opened, no errors logged. Menus and new items (Click only while recording, Export tail) not exercised by hand. |
+| GUI launch on the demo session, Release build | app launched with the session path, log inspected | **first run: fail** (not noticed at the time): the log showed ~27 000 device-list rebuilds in 8 s and Play did nothing (issue 6 below). **After the fix: pass**: 1 rebuild at startup, none in the following 14 s. Pressing Play and the menus were not exercised by hand (keystrokes cannot be sent to the app from the test shell). |
 
 ## 3. Reproducing
 
@@ -90,3 +91,4 @@ $APP --export-mix scratch/Smoke.osession /tmp/smoke-mix.wav && afplay /tmp/smoke
 3. **Unsaved-change tracking** in the engine is asynchronous (undo-manager change message); we added synchronous ValueTree dirty tracking so autosave and "save changes?" prompts are reliable.
 4. **Relative path style mismatch** (`../Audio/x.wav` vs `Audio/x.wav`) between the engine's helper and ours; the resolver accepts both.
 5. **Error message written as a file name.** An early run of the unwritable-folder test left a WAV in the working directory named `The directory\n…\n doesn't have write-access`. Cause (upstream, `tracktion_WaveInputDevice.cpp`, `getDestinationRecordingFile`): the error branches `return` a `juce::String` from a function returning `tl::expected<juce::File, juce::String>` without `tl::unexpected`, so the message converts implicitly to a `juce::File` and is treated as success. Our `checkRecordingDestination` (writability probe before every `record()`) prevents the engine from reaching that path; the current suite does not recreate the file. Worth reporting upstream.
+6. **Play did nothing in the GUI; the engine rebuilt its device list thousands of times a second.** `MainComponent` (and the Audio Settings panel) re-applied all input defaults on every device-manager change notification, and the engine's `DeviceManager::setDeviceEnabled` triggers a full device rebuild even when the input is already enabled, so each rebuild caused the next. Every rebuild reset playback. It affected only the GUI (command-line modes and tests never attach that listener), and the session-1 and early session-2 GUI checks missed it because they looked for errors, not for rebuilds. Fix: `setDeviceEnabled` only when an input is really disabled, and device-change callbacks use `DeviceSetup::configureNewInputs`, which configures only inputs not seen before (so it also no longer resets a user's MON choice or stereo pair after a rebuild). Regression test added; it fails with the old behaviour (3106 notifications, transport stopped).

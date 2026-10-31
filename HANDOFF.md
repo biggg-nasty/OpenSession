@@ -24,7 +24,7 @@ Constraints from the brief: native desktop app on JUCE + Tracktion Engine (pinne
 | Synthetic demo/soak content (Karplus-Strong plucks, sine bass, noise drums, formant tone; all ours) | `Session/DemoContent.*` | done |
 | UI: transport (play/stop/rec/to-start, clock + bars, tempo, click, count-in, snap, take lanes), track headers (name, input chooser, R, MON, M, S, input meter, output meter), timeline (ruler, grid, zoom/scroll, playhead, recording overlay, take lanes), clips (real waveform, trim/move/fades/gain, context menu, double-click = activate take), mixer (fader, pan, M/S, EQ/compressor/reverb inserts with generic parameter editor, master), audio settings panel, status bar, menus + shortcuts, recovery/missing-file prompts | `UI/*`, `App/*` | done |
 | Command line: `--run-tests`, `--export-mix`, `--export-stems`, `--print-audio-settings`, `--smoke-record`, `--measure-latency`, `--make-demo`, `--soak` | `App/CommandLine.*`, `Main.cpp` | done |
-| Self-test suite (doctest, hosted audio device = synthetic input, deterministic) | `Tests/*` | **34 cases / 526 assertions passing** |
+| Self-test suite (doctest, hosted audio device = synthetic input, deterministic) | `Tests/*` | **35 cases / 535 assertions passing** |
 
 ### Verified on this machine
 - **Automated** (`OpenSession --run-tests`): known-signal capture to 48 kHz/24-bit mono WAV with exact frame count and sample alignment; two simultaneous inputs → independent files with channel isolation; playback/click/monitoring absent from dry capture; fader/pan/EQ do not alter recordings; stereo input pair → 2-channel file; repeated passes become takes with exactly one active; monitoring independent of arming; unwritable Audio folder → reported failure, no clip; split/trim/move/duplicate/delete/fades/gain/undo with source offsets preserved; snapping optional; tempo change does not move audio; mix and stems (format, range, gain/mute/solo/pan, EQ bypass transparency, stems sum to mix, leading silence kept, clipping flagged, muted track → silent stem); save/reopen after moving the folder; atomic save + previous snapshot; corrupt file → clear error / snapshot fallback; read-only folder → save fails, audio intact; autosave recovery; collect-and-save; import; missing-file detection; orphan + header-repair recovery; abort keeps nothing.
@@ -54,7 +54,8 @@ Ordered by priority.
 - Removed the stray committed file `"The directory\n…doesn't have write-access"` and traced it to the engine bug in §5.
 - Pushed to the existing public remote (handoff item 5).
 - Exposed click-only-while-recording and the export tail (handoff item 6, first part); new session test; suite now 34 / 526, all passing. Not yet checked by hand in the GUI.
-- Demo readiness: `tools/demo-prep.sh` (Release build, suite, fresh demo session, export check, device report); fixed `tools/bootstrap.sh Release`, which configured `buildRelease/` instead of `build-release/`; homepage URL now comes from CMake (`OPENSESSION_HOMEPAGE_URL`) and points at the real repo; mixer hint uses the current EQ / CMP / REV labels; demo script, demo README, README and test results updated. Release verified on a second Mac (MacBook Air, macOS 26.6.2): suite, 6 s mic take, demo export, GUI launch.
+- Demo readiness: `tools/demo-prep.sh` (Release build, suite, fresh demo session, export check, device report); fixed `tools/bootstrap.sh Release`, which configured `buildRelease/` instead of `build-release/`; homepage URL now comes from CMake (`OPENSESSION_HOMEPAGE_URL`) and points at the real repo; mixer hint uses the current EQ / CMP / REV labels; demo script, demo README, README and test results updated. Release verified on a second Mac (MacBook Air, macOS 26.6.2): suite, 6 s mic take, demo export.
+- **Fixed: Play did nothing in the GUI.** Device-change callbacks re-applied input defaults, and the engine rebuilds its device list on every `setDeviceEnabled` call, so the GUI looped ~3000 rebuilds/s and playback never started. Now `DeviceSetup::configureNewInputs` (new inputs only, `setDeviceEnabled` only when disabled); regression test "Devices: re-applying input defaults..." (fails on the old code). Suite 35 / 535. Pressing Play by hand still to be confirmed by a person.
 
 ## 4. How to build and test
 
@@ -90,6 +91,8 @@ Session format: `Song.osession/` folder with `session.xml` (Tracktion Edit Value
 Logs: `~/Library/Logs/OpenSession/opensession.log` (also stderr). Engine settings: `~/Library/OpenSession/Settings.xml`.
 
 ## 5. Known problems and caveats
+
+- **Engine `setDeviceEnabled` always rebuilds the device list**, even for an already-enabled input. Never call it (or anything that can change the device list) unconditionally from a device-manager change callback; use `DeviceSetup::configureNewInputs`. Watch the log for repeated "Rebuilding Wave Device List..." after any change to device handling.
 
 - **Engine returns an error message as a file path** (upstream bug in `getDestinationRecordingFile`, `tracktion_WaveInputDevice.cpp`: missing `tl::unexpected`). With a read-only Audio folder the engine would write a WAV named after the error text in the current directory; session 1 accidentally committed one (removed in session 2). `RecordingController::checkRecordingDestination` prevents it; keep that check ahead of every `record()`. Worth reporting upstream.
 

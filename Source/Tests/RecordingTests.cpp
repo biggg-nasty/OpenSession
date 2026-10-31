@@ -266,6 +266,50 @@ TEST_SUITE ("opensession")
         CHECK_FALSE (s.recording->isArmed (t));
     }
 
+    TEST_CASE ("Devices: re-applying input defaults on device changes settles and leaves playback running")
+    {
+        // The app reacts to every device-list change by configuring inputs. If that reaction itself
+        // changes the device list, the engine rebuilds forever (seen live: ~3000 rebuilds/s and Play
+        // doing nothing). One provoked change must settle after a handful of notifications.
+        Player player (1);
+        Session s;
+        auto file = writeSessionAudio (s, "playback", makeSine (2.0, 220.0));
+        insertClip (s.track (0), file, 0.0, 2.0);
+
+        auto& dm = getTestEngine().getDeviceManager();
+
+        struct Reconfigure : public juce::ChangeListener
+        {
+            explicit Reconfigure (te::Engine& e) : engine (e) {}
+            void changeListenerCallback (juce::ChangeBroadcaster*) override { ++notifications; DeviceSetup::configureNewInputs (engine); }
+            te::Engine& engine;
+            int notifications = 0;
+        } listener (getTestEngine());
+
+        dm.addChangeListener (&listener);
+
+        auto inputs = dm.getWaveInputDevices();
+        REQUIRE_FALSE (inputs.empty());
+        dm.setDeviceEnabled (*inputs[0], true);   // the engine treats this as a change even when already enabled
+        pump (300);
+        const int afterProvokedChange = listener.notifications;
+
+        auto& tc = s.edit().getTransport();
+        tc.setPosition (te::TimePosition());
+        tc.play (false);
+        pump (50);
+        player.player.process (static_cast<int> (kSampleRate * 0.5));
+        pump (300);
+
+        dm.removeChangeListener (&listener);
+
+        CHECK_LE (afterProvokedChange, 4);
+        CHECK_LE (listener.notifications, afterProvokedChange + 1);
+        CHECK (tc.isPlaying());
+        CHECK_GT (tc.getPosition().inSeconds(), 0.2);
+        tc.stop (false, true);
+    }
+
     TEST_CASE ("Recording: an unwritable Audio folder produces a reported failure and no clip")
     {
         if (juce::SystemStats::getEnvironmentVariable ("USER", "") == "root")

@@ -118,8 +118,8 @@ DeviceSettingsPanel::~DeviceSettingsPanel()
 
 void DeviceSettingsPanel::changeListenerCallback (juce::ChangeBroadcaster*)
 {
-    // Device changed: re-establish recording defaults for whatever inputs the new device has.
-    DeviceSetup::configureInputsForRecording (engine);
+    // Device changed: give any new input our recording defaults.
+    DeviceSetup::configureNewInputs (engine);
     refreshSummary();
 }
 

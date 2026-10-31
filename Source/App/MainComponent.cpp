@@ -130,7 +130,7 @@ MainComponent::MainComponent (OpenSessionEngine& eo, juce::DocumentWindow& w)
 
     // Device summary in the status bar + autosave (60 s)
     startTimer (1000);
-    changeListenerCallback (nullptr);
+    DeviceSetup::configureNewInputs (engine);
     setStatus ("Ready. " + DeviceSetup::getInputPermissionGuidance(), false);
     resized();
 }
@@ -226,8 +226,8 @@ void MainComponent::timerCallback()
 
 void MainComponent::changeListenerCallback (juce::ChangeBroadcaster*)
 {
-    // The engine's wave devices may have been rebuilt (device change): keep our defaults.
-    DeviceSetup::configureInputsForRecording (engine);
+    // The engine's wave devices may have been rebuilt (device change): give any new input our defaults.
+    DeviceSetup::configureNewInputs (engine);
 }
 
 void MainComponent::updateTitle()
