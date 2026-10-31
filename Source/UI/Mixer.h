@@ -10,22 +10,7 @@
 namespace opensession
 {
 
-/** Generic editor for a built-in plugin: one slider per automatable parameter, plus bypass. */
-class PluginParameterPanel : public juce::Component
-{
-public:
-    explicit PluginParameterPanel (te::Plugin&);
-    void resized() override;
-    void paint (juce::Graphics&) override;
-
-private:
-    te::Plugin::Ptr plugin;
-    juce::ToggleButton enabledButton { "Enabled (untick to bypass)" };
-    juce::OwnedArray<juce::Label> labels;
-    juce::OwnedArray<juce::Slider> sliders;
-};
-
-/** One mixer channel: name, inserts (EQ / Comp / Reverb), pan, fader, mute/solo, meter.
+/** One mixer channel: name, inserts (EQ / Comp / Reverb and third-party plugins), pan, fader, mute/solo, meter.
     track == nullptr means the master. */
 class ChannelStrip : public juce::Component,
                      private juce::Timer
@@ -45,7 +30,7 @@ private:
     te::AudioTrack* track;   // nullptr = master
 
     juce::Label nameLabel;
-    juce::TextButton eqButton { "EQ" }, compButton { "CMP" }, reverbButton { "REV" }, fxEditButton { "FX..." };
+    juce::TextButton eqButton { "EQ" }, compButton { "CMP" }, reverbButton { "REV" }, fxEditButton { "FX..." }, addPluginButton { "+" };
     juce::Slider fader, pan;
     juce::TextButton muteButton { "M" }, soloButton { "S" };
     LevelMeterComponent meter { true };
@@ -56,7 +41,9 @@ private:
     template <typename PluginType> te::Plugin* findPlugin() const;
     template <typename PluginType> void togglePlugin (juce::TextButton&);
     template <typename PluginType> void refreshPluginButton (juce::TextButton&);
-    void openPluginEditor();
+    void showInsertsMenu();
+    void showAddPluginMenu();
+    void refreshInsertsButton();
     void timerCallback() override;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ChannelStrip)

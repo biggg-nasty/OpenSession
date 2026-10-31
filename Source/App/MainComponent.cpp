@@ -2,6 +2,7 @@
 // Copyright (C) 2026 The OpenSession contributors.
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "MainComponent.h"
+#include "../UI/PluginWindow.h"
 #include "../Engine/DeviceSetup.h"
 #include "../Session/Exporter.h"
 #include "../UI/DeviceSettingsPanel.h"
@@ -722,7 +723,7 @@ juce::PopupMenu MainComponent::getMenuForIndex (int index, const juce::String&)
             add (cmdZoomIn); add (cmdZoomOut); add (cmdZoomFit);
             break;
         case 5:
-            add (cmdAudioSettings);
+            add (cmdAudioSettings); add (cmdPluginManager);
             break;
         case 6:
             add (cmdAbout); add (cmdShowLog);
@@ -742,7 +743,7 @@ void MainComponent::getAllCommands (juce::Array<juce::CommandID>& c)
                   cmdPlayStop, cmdRecord, cmdToStart, cmdToggleClick, cmdToggleClickRecordingOnly, cmdToggleCountIn,
                   cmdExportTail0, cmdExportTail2, cmdExportTail5, cmdExportTail10,
                   cmdToggleMixer, cmdZoomIn, cmdZoomOut, cmdZoomFit, cmdToggleTakeLanes,
-                  cmdAudioSettings, cmdRecoverOrphans, cmdCheckMissing, cmdAbout, cmdShowLog });
+                  cmdAudioSettings, cmdPluginManager, cmdRecoverOrphans, cmdCheckMissing, cmdAbout, cmdShowLog });
 }
 
 static double exportTailSecondsFor (juce::CommandID id)
@@ -816,6 +817,7 @@ void MainComponent::getCommandInfo (juce::CommandID id, juce::ApplicationCommand
         case cmdZoomOut:        set ("Zoom out", "View", hasDoc, '-', Mod::commandModifier); break;
         case cmdZoomFit:        set ("Zoom to fit", "View", hasDoc, '0', Mod::commandModifier); break;
         case cmdAudioSettings:  set ("Audio settings...", "Audio", true, ',', Mod::commandModifier); break;
+        case cmdPluginManager:  set ("Plugins (VST3 / Audio Unit)...", "Audio", true); break;
         case cmdRecoverOrphans: set ("Recover recordings not on the timeline...", "File", hasDoc); break;
         case cmdCheckMissing:   set ("Check for missing audio files", "File", hasDoc); break;
         case cmdAbout:          set ("About OpenSession", "Help", true); break;
@@ -942,6 +944,7 @@ bool MainComponent::perform (const InvocationInfo& info)
         case cmdZoomFit:        if (editor) editor->getTimeline().zoomToFit(); break;
 
         case cmdAudioSettings:  DeviceSettingsPanel::show (engine); break;
+        case cmdPluginManager:  PluginManagerPanel::show (engine); break;
         case cmdRecoverOrphans: checkRecoveryAndIntegrity(); break;
         case cmdCheckMissing:
             if (document)

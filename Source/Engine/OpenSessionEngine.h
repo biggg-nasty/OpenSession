@@ -40,6 +40,11 @@ public:
     /** The UI registers itself here to receive engine warnings (e.g. record failures). */
     void setMessageSink (MessageSink* sink);
 
+    /** Builds the window for a plugin when the engine asks to show one (Plugin::showWindowExplicitly).
+        Set by the UI layer so the engine layer does not depend on it. */
+    using PluginWindowFactory = std::function<std::unique_ptr<juce::Component> (te::Plugin&)>;
+    void setPluginWindowFactory (PluginWindowFactory f)  { pluginWindowFactory = std::move (f); }
+
     /** Returns the folder recordings for this Edit go into: <session>/Audio. Empty if the
         Edit has no file yet. */
     static juce::File getAudioDirectoryForEdit (te::Edit&);
@@ -60,6 +65,7 @@ private:
     bool headless = false;
     std::unique_ptr<te::Engine> engine;
     MessageSink* messageSink = nullptr;
+    PluginWindowFactory pluginWindowFactory;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (OpenSessionEngine)
 };

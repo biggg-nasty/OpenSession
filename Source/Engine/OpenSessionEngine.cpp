@@ -24,6 +24,10 @@ struct OpenSessionEngine::Behaviour : public te::EngineBehaviour
     // (the brief: preserve performance timing unless explicitly edited).
     bool areAudioClipsRemappedWhenTempoChanges() override   { return false; }
 
+    // Plugin scans run in a child copy of the app (see Main.cpp), so a plugin that crashes
+    // while being scanned is blacklisted instead of taking the session down.
+    bool canScanPluginsOutOfProcess() override              { return ! headless; }
+
     bool headless;
 };
 
@@ -62,6 +66,14 @@ struct OpenSessionEngine::UI : public te::UIBehaviour
         while (runner.isThreadRunning())
             if (! juce::MessageManager::getInstance()->runDispatchLoopUntil (10))
                 break;
+    }
+
+    std::unique_ptr<juce::Component> createPluginWindow (te::PluginWindowState& pws) override
+    {
+        if (auto* ws = dynamic_cast<te::Plugin::WindowState*> (&pws); ws != nullptr && owner.pluginWindowFactory)
+            return owner.pluginWindowFactory (ws->plugin);
+
+        return {};
     }
 
     void post (const juce::String& title, const juce::String& body, bool isError)

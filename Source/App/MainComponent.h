@@ -87,7 +87,7 @@ public:
         cmdPlayStop, cmdRecord, cmdToStart, cmdToggleClick, cmdToggleClickRecordingOnly, cmdToggleCountIn,
         cmdExportTail0, cmdExportTail2, cmdExportTail5, cmdExportTail10,
         cmdToggleMixer, cmdZoomIn, cmdZoomOut, cmdZoomFit, cmdToggleTakeLanes,
-        cmdAudioSettings, cmdRecoverOrphans, cmdCheckMissing, cmdAbout, cmdShowLog
+        cmdAudioSettings, cmdPluginManager, cmdRecoverOrphans, cmdCheckMissing, cmdAbout, cmdShowLog
     };
 
 private:

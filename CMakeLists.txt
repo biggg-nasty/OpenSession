@@ -28,6 +28,11 @@ endif()
 
 option(OPENSESSION_BUILD_TESTS "Compile the self-test suite into the app (run with --run-tests)" ON)
 
+# VST2 hosting needs Steinberg's legacy VST2 SDK, which is no longer licensed and cannot be
+# distributed with a GPL program. Point this at a local copy (the folder that contains
+# pluginterfaces/vst2.x) for a private build only.
+set(OPENSESSION_VST2_SDK_DIR "" CACHE PATH "Legacy VST2 SDK folder (private builds only; enables VST2 hosting)")
+
 # ---------------------------------------------------------------------------
 # Third-party: Tracktion Engine (which brings its pinned JUCE submodule).
 # We disable the engine's example targets; we only want the modules.
@@ -74,6 +79,8 @@ set(OPENSESSION_SOURCES
     Source/Engine/Recording.h
     Source/Engine/Recording.cpp
     Source/Engine/PluginHelpers.h
+    Source/Engine/PluginHosting.h
+    Source/Engine/PluginHosting.cpp
     Source/Engine/LatencyCalibration.h
     Source/Engine/LatencyCalibration.cpp
     Source/Session/SessionDocument.h
@@ -96,6 +103,10 @@ set(OPENSESSION_SOURCES
     Source/UI/ClipComponent.cpp
     Source/UI/Mixer.h
     Source/UI/Mixer.cpp
+    Source/UI/PluginEditors.h
+    Source/UI/PluginEditors.cpp
+    Source/UI/PluginWindow.h
+    Source/UI/PluginWindow.cpp
     Source/UI/DeviceSettingsPanel.h
     Source/UI/DeviceSettingsPanel.cpp
     Source/UI/Meters.h
@@ -109,7 +120,8 @@ if(OPENSESSION_BUILD_TESTS)
         Source/Tests/RecordingTests.cpp
         Source/Tests/EditingTests.cpp
         Source/Tests/MixExportTests.cpp
-        Source/Tests/SessionTests.cpp)
+        Source/Tests/SessionTests.cpp
+        Source/Tests/PluginTests.cpp)
 endif()
 
 target_sources(OpenSession PRIVATE ${OPENSESSION_SOURCES})
@@ -122,8 +134,8 @@ target_include_directories(OpenSession PRIVATE
 target_compile_definitions(OpenSession PRIVATE
     JUCE_APPLICATION_NAME_STRING="$<TARGET_PROPERTY:OpenSession,JUCE_PRODUCT_NAME>"
     JUCE_APPLICATION_VERSION_STRING="$<TARGET_PROPERTY:OpenSession,JUCE_VERSION>"
-    JUCE_PLUGINHOST_AU=0
-    JUCE_PLUGINHOST_VST3=0
+    JUCE_PLUGINHOST_AU=1
+    JUCE_PLUGINHOST_VST3=1
     JUCE_PLUGINHOST_LADSPA=0
     JUCE_MODAL_LOOPS_PERMITTED=1
     JUCE_STRICT_REFCOUNTEDPOINTER=1
@@ -159,6 +171,15 @@ if(APPLE)
     set_source_files_properties("${TRACKTION_ENGINE_DIR}/modules/juce/modules/juce_audio_processors_headless/juce_audio_processors_headless.mm"
         DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PROPERTIES COMPILE_OPTIONS "-Wno-deprecated-declarations")
+endif()
+
+if(OPENSESSION_VST2_SDK_DIR)
+    if(NOT EXISTS "${OPENSESSION_VST2_SDK_DIR}/pluginterfaces/vst2.x/aeffect.h")
+        message(FATAL_ERROR "OPENSESSION_VST2_SDK_DIR must contain pluginterfaces/vst2.x/aeffect.h")
+    endif()
+    message(WARNING "VST2 hosting enabled from ${OPENSESSION_VST2_SDK_DIR}: do not distribute this build.")
+    target_include_directories(OpenSession PRIVATE "${OPENSESSION_VST2_SDK_DIR}")
+    target_compile_definitions(OpenSession PRIVATE JUCE_PLUGINHOST_VST=1)
 endif()
 
 # Record the engine revision we were built against so the app can display it.

@@ -3,56 +3,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "Mixer.h"
 #include "Theme.h"
-#include "../Engine/PluginHelpers.h"
+#include "../Engine/PluginHosting.h"
+#include "PluginWindow.h"
 
 namespace opensession
 {
-
-//==============================================================================
-PluginParameterPanel::PluginParameterPanel (te::Plugin& p) : plugin (&p)
-{
-    addAndMakeVisible (enabledButton);
-    enabledButton.setToggleState (plugin->isEnabled(), juce::dontSendNotification);
-    enabledButton.onClick = [this] { plugin->setEnabled (enabledButton.getToggleState()); };
-
-    for (auto param : plugin->getAutomatableParameters())
-    {
-        auto* label = labels.add (new juce::Label ({}, param->paramName));
-        label->setColour (juce::Label::textColourId, theme::textDim);
-        addAndMakeVisible (label);
-
-        auto* slider = sliders.add (new juce::Slider (juce::Slider::LinearHorizontal, juce::Slider::TextBoxRight));
-        const auto& range = param->valueRange;
-        slider->setRange (range.start, range.end, 0.0);
-        slider->setSkewFactor (range.skew);
-        slider->setValue (param->getCurrentValue(), juce::dontSendNotification);
-        slider->setTextBoxStyle (juce::Slider::TextBoxRight, false, 90, 20);
-        slider->textFromValueFunction = [param] (double) { return param->getCurrentValueAsString(); };
-        slider->onValueChange = [param, slider] { param->setParameter ((float) slider->getValue(), juce::sendNotification); };
-        addAndMakeVisible (slider);
-    }
-
-    setSize (420, 40 + 30 * sliders.size());
-}
-
-void PluginParameterPanel::paint (juce::Graphics& g)
-{
-    g.fillAll (theme::panel);
-}
-
-void PluginParameterPanel::resized()
-{
-    auto r = getLocalBounds().reduced (10, 8);
-    enabledButton.setBounds (r.removeFromTop (24));
-    r.removeFromTop (6);
-
-    for (int i = 0; i < sliders.size(); ++i)
-    {
-        auto row = r.removeFromTop (28);
-        labels[i]->setBounds (row.removeFromLeft (120));
-        sliders[i]->setBounds (row);
-    }
-}
 
 //==============================================================================
 ChannelStrip::ChannelStrip (SessionContext& c, te::AudioTrack* t) : ctx (c), track (t)
@@ -62,6 +17,7 @@ ChannelStrip::ChannelStrip (SessionContext& c, te::AudioTrack* t) : ctx (c), tra
     addAndMakeVisible (compButton);
     addAndMakeVisible (reverbButton);
     addAndMakeVisible (fxEditButton);
+    addAndMakeVisible (addPluginButton);
     addAndMakeVisible (fader);
     addAndMakeVisible (pan);
     addAndMakeVisible (meter);
@@ -111,10 +67,12 @@ ChannelStrip::ChannelStrip (SessionContext& c, te::AudioTrack* t) : ctx (c), tra
     eqButton.onClick = [this] { togglePlugin<te::EqualiserPlugin> (eqButton); };
     compButton.onClick = [this] { togglePlugin<te::CompressorPlugin> (compButton); };
     reverbButton.onClick = [this] { togglePlugin<te::ReverbPlugin> (reverbButton); };
-    fxEditButton.onClick = [this] { openPluginEditor(); };
-    eqButton.setTooltip ("4-band EQ insert: click to add/enable, click again to bypass");
-    compButton.setTooltip ("Compressor insert: click to add/enable, click again to bypass");
-    reverbButton.setTooltip ("Reverb insert: click to add/enable, click again to bypass");
+    fxEditButton.onClick = [this] { showInsertsMenu(); };
+    addPluginButton.onClick = [this] { showAddPluginMenu(); };
+    eqButton.setTooltip ("Parametric EQ insert: click to add (opens the editor) or bypass; right-click to open the editor");
+    compButton.setTooltip ("Compressor insert: click to add (opens the editor) or bypass; right-click to open the editor");
+    reverbButton.setTooltip ("Reverb insert: click to add (opens the editor) or bypass; right-click to open the editor");
+    addPluginButton.setTooltip ("Add an insert: built-in effects or a scanned VST3 / Audio Unit plugin");
 
     if (track != nullptr)
     {
@@ -164,9 +122,17 @@ te::Plugin* ChannelStrip::findPlugin() const
 template <typename PluginType>
 void ChannelStrip::togglePlugin (juce::TextButton& button)
 {
+    auto* existing = findPlugin<PluginType>();
+
+    if (existing != nullptr && juce::ModifierKeys::currentModifiers.isPopupMenu())
+    {
+        existing->showWindowExplicitly();
+        return;
+    }
+
     ctx.edit.getUndoManager().beginNewTransaction();
 
-    if (auto* existing = findPlugin<PluginType>())
+    if (existing != nullptr)
     {
         existing->setEnabled (! existing->isEnabled());
     }
@@ -177,6 +143,8 @@ void ChannelStrip::togglePlugin (juce::TextButton& button)
 
         if (created == nullptr)
             ctx.status ("Couldn't add the plugin", true);
+        else
+            created->showWindowExplicitly();
     }
 
     refreshPluginButton<PluginType> (button);
@@ -191,49 +159,152 @@ void ChannelStrip::refreshPluginButton (juce::TextButton& button)
     button.setAlpha (p == nullptr ? 0.7f : 1.0f);
 }
 
-void ChannelStrip::openPluginEditor()
+void ChannelStrip::showInsertsMenu()
 {
     auto* list = getPluginList();
 
     if (list == nullptr)
         return;
 
-    juce::PopupMenu m;
-    int id = 1;
-    juce::Array<te::Plugin*> plugins;
-
-    for (auto p : list->getPlugins())
-    {
-        if (dynamic_cast<te::VolumeAndPanPlugin*> (p) != nullptr || dynamic_cast<te::LevelMeterPlugin*> (p) != nullptr)
-            continue;
-
-        plugins.add (p);
-        m.addItem (id++, p->getName() + (p->isEnabled() ? "" : " (bypassed)"));
-    }
+    auto plugins = PluginHosting::getUserInserts (*list);
 
     if (plugins.isEmpty())
     {
-        ctx.status ("No inserts on this channel yet - click EQ, CMP or REV to add one");
+        ctx.status ("No inserts on this channel yet - click EQ, CMP, REV or + to add one");
         return;
     }
 
-    m.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (fxEditButton),
-                     [this, plugins] (int result)
+    // Item ids: 1000 * action + index. Actions: 1 open editor, 2 bypass toggle, 3 remove.
+    juce::PopupMenu m;
+
+    for (int i = 0; i < plugins.size(); ++i)
     {
-        if (result <= 0 || result > plugins.size())
+        auto* p = plugins[i];
+        juce::PopupMenu sub;
+        sub.addItem (1000 + i, "Open editor");
+        sub.addItem (2000 + i, "Bypass", true, ! p->isEnabled());
+        sub.addSeparator();
+        sub.addItem (3000 + i, "Remove");
+        m.addSubMenu (juce::String (i + 1) + ". " + PluginHosting::describe (*p), sub);
+    }
+
+    juce::Array<te::Plugin::Ptr> held;
+
+    for (auto* p : plugins)
+        held.add (p);
+
+    m.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (fxEditButton),
+                     [safe = juce::Component::SafePointer<ChannelStrip> (this), held] (int result)
+    {
+        if (safe == nullptr || result <= 0)
             return;
 
-        auto* p = plugins[result - 1];
-        auto* panel = new PluginParameterPanel (*p);
-        juce::DialogWindow::LaunchOptions o;
-        o.content.setOwned (panel);
-        o.dialogTitle = (track != nullptr ? track->getName() : juce::String ("Master")) + " - " + p->getName();
-        o.dialogBackgroundColour = theme::panel;
-        o.escapeKeyTriggersCloseButton = true;
-        o.useNativeTitleBar = true;
-        o.resizable = false;
-        o.launchAsync();
+        const int action = result / 1000, index = result % 1000;
+
+        if (index >= held.size())
+            return;
+
+        auto p = held[index];
+
+        switch (action)
+        {
+            case 1: p->showWindowExplicitly(); break;
+            case 2: safe->ctx.edit.getUndoManager().beginNewTransaction(); p->setEnabled (! p->isEnabled()); break;
+            case 3:
+                safe->ctx.edit.getUndoManager().beginNewTransaction ("Remove insert");
+                p->hideWindowForShutdown();
+                p->deleteFromParent();
+                break;
+            default: break;
+        }
+
+        safe->refresh();
     });
+}
+
+void ChannelStrip::showAddPluginMenu()
+{
+    auto* list = getPluginList();
+
+    if (list == nullptr)
+        return;
+
+    // Ids: 1-3 built-ins, 10 = plugin manager, 100 + n = known third-party effect n.
+    juce::PopupMenu m;
+    m.addSectionHeader ("Built-in");
+    m.addItem (1, "Parametric EQ", findPlugin<te::EqualiserPlugin>() == nullptr);
+    m.addItem (2, "Compressor", findPlugin<te::CompressorPlugin>() == nullptr);
+    m.addItem (3, "Reverb", findPlugin<te::ReverbPlugin>() == nullptr);
+
+    auto known = PluginHosting::getKnownEffects (ctx.engine);
+    std::map<juce::String, juce::PopupMenu> byFormat;
+
+    for (int i = 0; i < known.size(); ++i)
+    {
+        const auto& d = known.getReference (i);
+        byFormat[d.pluginFormatName].addItem (100 + i, d.name + (d.manufacturerName.isNotEmpty() ? "  (" + d.manufacturerName + ")" : juce::String()));
+    }
+
+    m.addSeparator();
+
+    if (byFormat.empty())
+        m.addItem (-1, "No third-party plugins scanned yet", false);
+
+    for (auto& [format, sub] : byFormat)
+        m.addSubMenu (format == "AudioUnit" ? juce::String ("Audio Unit") : format, sub);
+
+    m.addSeparator();
+    m.addItem (10, "Scan for plugins...");
+
+    m.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (addPluginButton),
+                     [safe = juce::Component::SafePointer<ChannelStrip> (this), known] (int result)
+    {
+        if (safe == nullptr || result <= 0)
+            return;
+
+        if (result == 1) { safe->togglePlugin<te::EqualiserPlugin> (safe->eqButton); return; }
+        if (result == 2) { safe->togglePlugin<te::CompressorPlugin> (safe->compButton); return; }
+        if (result == 3) { safe->togglePlugin<te::ReverbPlugin> (safe->reverbButton); return; }
+        if (result == 10) { PluginManagerPanel::show (safe->ctx.engine); return; }
+
+        const int index = result - 100;
+
+        if (index < 0 || index >= known.size())
+            return;
+
+        safe->ctx.edit.getUndoManager().beginNewTransaction ("Add plugin");
+        juce::String error;
+        auto p = PluginHosting::insertExternalPlugin (safe->ctx.edit, *safe->getPluginList(), known.getReference (index), error);
+
+        if (error.isNotEmpty())
+            safe->ctx.status (error, true);
+        else if (p != nullptr)
+            safe->ctx.status ("Added " + PluginHosting::describe (*p));
+
+        if (p != nullptr && ! PluginHosting::isMissing (*p))
+            p->showWindowExplicitly();
+
+        safe->refresh();
+    });
+}
+
+void ChannelStrip::refreshInsertsButton()
+{
+    auto* list = getPluginList();
+    auto inserts = list != nullptr ? PluginHosting::getUserInserts (*list) : juce::Array<te::Plugin*>();
+    juce::StringArray lines;
+    bool anyMissing = false;
+
+    for (auto* p : inserts)
+    {
+        lines.add (PluginHosting::describe (*p));
+        anyMissing = anyMissing || PluginHosting::isMissing (*p);
+    }
+
+    fxEditButton.setButtonText (inserts.isEmpty() ? "FX..." : "FX (" + juce::String (inserts.size()) + ")");
+    fxEditButton.setColour (juce::TextButton::buttonColourId, anyMissing ? theme::warning.withAlpha (0.6f) : theme::panelLight);
+    fxEditButton.setTooltip (inserts.isEmpty() ? juce::String ("Inserts on this channel: none")
+                                               : "Inserts, in signal order (click to open, bypass or remove):\n" + lines.joinIntoString ("\n"));
 }
 
 void ChannelStrip::refresh()
@@ -256,6 +327,7 @@ void ChannelStrip::refresh()
     refreshPluginButton<te::EqualiserPlugin> (eqButton);
     refreshPluginButton<te::CompressorPlugin> (compButton);
     refreshPluginButton<te::ReverbPlugin> (reverbButton);
+    refreshInsertsButton();
 }
 
 void ChannelStrip::timerCallback()
@@ -289,7 +361,9 @@ void ChannelStrip::resized()
     compButton.setBounds (fx.removeFromLeft (w).reduced (1, 0));
     reverbButton.setBounds (fx.reduced (1, 0));
     r.removeFromTop (2);
-    fxEditButton.setBounds (r.removeFromTop (20));
+    auto fxRow = r.removeFromTop (20);
+    addPluginButton.setBounds (fxRow.removeFromRight (24).reduced (1, 0));
+    fxEditButton.setBounds (fxRow.reduced (1, 0));
     r.removeFromTop (6);
 
     pan.setBounds (r.removeFromTop (40).withSizeKeepingCentre (40, 40));

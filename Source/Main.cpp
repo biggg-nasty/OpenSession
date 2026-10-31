@@ -15,6 +15,7 @@
 #include "Engine/Recording.h"
 #include "Engine/LatencyCalibration.h"
 #include "Session/DemoContent.h"
+#include "UI/PluginWindow.h"
 
 #if OPENSESSION_BUILD_TESTS
  #include "Tests/TestMain.h"
@@ -52,6 +53,11 @@ public:
 
     void initialise (const juce::String& commandLine) override
     {
+        // The engine relaunches this executable to scan plugins out of process; that child
+        // does only the scan and never opens the GUI or the audio device.
+        if (te::PluginManager::startChildProcessPluginScan (commandLine))
+            return;
+
         auto cl = CommandLine::parse (commandLine);
 
         if (cl.mode == CommandLine::Mode::runTests)
@@ -123,6 +129,7 @@ public:
         }
 
         juce::LookAndFeel::setDefaultLookAndFeel (&lookAndFeel);
+        engine->setPluginWindowFactory ([] (te::Plugin& p) { return PluginWindow::create (p); });
         mainWindow = std::make_unique<MainWindow> ("OpenSession", *engine);
 
         if (cl.sessionToOpen != juce::File())
