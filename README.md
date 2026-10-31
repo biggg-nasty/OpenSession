@@ -11,7 +11,8 @@ A recording-first, open-source multitrack DAW for musicians who record live inst
 - Several inputs recorded at once to independent files; overdubs against existing tracks with the playback and click kept out of the dry capture; latency compensated from driver figures with a loopback calibrator for the residual.
 - Takes: re-recording over a region keeps every pass; the newest plays, older ones sit muted in a take lane; double-click to audition.
 - Non-destructive split, trim, move, duplicate, delete, fades, clip gain, undo/redo. Source files are never modified.
-- Mixer with gain, pan, mute, solo, meters, built-in EQ / compressor / reverb, master.
+- Mixer with gain, pan, mute, solo, meters, master; built-in parametric EQ (draggable response curve), compressor (with transfer curve) and reverb with knob-style editors.
+- Third-party VST3 and Audio Unit effects: scan out of process (Audio > Plugins...), add with the **+** button on a mixer strip, open the plugin's own GUI. Missing plugins keep their settings and pass audio through. AAX and RTAS cannot be hosted (see `docs/architecture.md`); VST2 only in private builds with the legacy SDK.
 - Session = a folder (`Song.osession/`) with relative paths, atomic saves, a previous snapshot, autosave recovery, collect-and-save, recovery of recordings orphaned or interrupted by a crash.
 - Export: stereo mix and per-track stems with identical start and length, clipping reported, nothing normalised.
 - A 35-case deterministic self-test suite runs the real engine with synthetic input (`--run-tests`), plus command-line hardware checks (`--smoke-record`, `--soak`, `--measure-latency`).
@@ -57,7 +58,7 @@ $APP --export-mix demo/DemoSession.osession /tmp/mix.wav
 - One input per track; stereo tracks use a 2-channel input pair.
 - Whole-take audition only; no range comping, punch in/out or edit groups yet.
 - Verified on one Mac with a 1-channel built-in mic: two simultaneous *hardware* inputs, headphone monitoring and loopback latency are verified in the deterministic suite and by procedure, not yet on an interface.
-- No plugin hosting, automation, MIDI or virtual instruments yet (engine supports them; deferred until the recording core is proven with musicians).
+- Plugin hosting covers VST3 and Audio Unit **effects** on track and master inserts; it has been tested only with a missing-plugin case in the suite, not yet with real third-party plugins on hardware. No instruments, automation or MIDI yet.
 
 ## Licence
 OpenSession is free software under the GNU GPL v3 or later. It combines Tracktion Engine (GPLv3) and JUCE (AGPLv3, via GPLv3 §13). See `LICENSE` and `THIRD_PARTY_NOTICES.md`. The demo session audio is synthesised by the app and carries the same licence.

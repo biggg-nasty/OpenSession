@@ -40,6 +40,7 @@ Real-time rules: all disk I/O for recordings happens on the engine's `WaveInputR
 | Timeline model: tracks, clips, offsets, fades, gain, split, duplicate, undo | `AudioTrack`, `WaveAudioClip`, `ClipTrack::splitClip`, `te::duplicateClip`, `juce::UndoManager` | Every edit is a state change on the Edit ValueTree, so it is undoable and the source file is never modified |
 | Mixing: volume, pan, mute, solo, meters | `VolumeAndPanPlugin`, `LevelMeterPlugin`, `Track::setMute/setSolo` | |
 | Built-in effects | `EqualiserPlugin`, `CompressorPlugin`, `ReverbPlugin` | Inserted pre-fader; bypass via `Plugin::setEnabled` |
+| Third-party plugin hosting | `PluginManager` (format manager, `KnownPluginList`, out-of-process `CustomScanner`), `ExternalPlugin`, `PluginWindowState`, `juce::PluginListComponent` | VST3 + Audio Unit compiled in (`JUCE_PLUGINHOST_VST3/AU=1`); the engine saves plugin state in the Edit, compensates reported latency and passes audio through a plugin it cannot load |
 | Offline render | `te::Renderer::renderToFile` | Used for mix and stems with the same time range |
 | Waveform display | `te::SmartThumbnail` | Thumbnails are generated from the actual file samples |
 | Click, count-in, tempo | `Edit::clickTrackEnabled`, `Edit::setCountInMode`, `TempoSequence` | Audio clips are not remapped when tempo changes (`EngineBehaviour::areAudioClipsRemappedWhenTempoChanges = false`) |
@@ -57,9 +58,11 @@ Real-time rules: all disk I/O for recordings happens on the engine's `WaveInputR
 | `Session/WavRepair` | RIFF/data size inspection and repair for WAVs whose header was never finalised; POSIX hard links |
 | `Session/Exporter` | Export policy: range 0 → last clip end + tail, stems pre-master and stereo with identical start/length, no normalisation, peak measurement and clipping report |
 | `Session/DemoContent` | Synthesised demo and soak material we own (Karplus-Strong plucks, sine bass, noise drums, formant tone, steady tones) |
+| `Engine/PluginHosting` | Which formats are built, the AAX/RTAS/VST2 explanation, effects-only plugin list, pre-fader insert position (after existing inserts, before volume/pan and meter), missing/latency/bypass descriptions; the scan child process is started from `Main.cpp` and enabled by `EngineBehaviour::canScanPluginsOutOfProcess` |
+| `UI/PluginEditors`, `UI/PluginWindow` | Knob look-and-feel (amp-style knobs with 0-10 scale and value arc), compressor editor with static transfer curve, reverb editor, parametric view of the engine's 4-band EQ (response computed from the same JUCE coefficient formulas the engine runs; draggable band nodes, wheel = Q), plugin window (plugin's own GUI, JUCE generic editor if it has none, or a missing-plugin notice) installed through `OpenSessionEngine::setPluginWindowFactory`, Plugins window (scan / list / format notes) |
 | `UI/*` | All components: transport bar, track headers (input chooser, R, MON, M, S, input and output meters), timeline with ruler/grid/zoom/scroll/playhead/recording overlay/take lanes, clip component (waveform, trim, move, fades, gain, context menu), mixer strips with generic plugin parameter editor, audio settings panel with calibration, status bar, theme |
 | `App/*`, `Main.cpp` | Menus, commands and shortcuts, session lifecycle with save prompts, export dialogs, recovery prompts, command-line modes (`--run-tests`, `--export-mix`, `--export-stems`, `--print-audio-settings`, `--smoke-record`, `--measure-latency`, `--make-demo`, `--soak`), file + stderr logging |
-| `Tests/*` | 35 deterministic test cases (535 assertions) covering recording, editing, mix/export and session behaviour through the hosted device |
+| `Tests/*` | 38 deterministic test cases (581 assertions) covering recording, editing, mix/export, session and plugin-hosting behaviour through the hosted device |
 
 ## Data flow for one take
 
@@ -72,7 +75,7 @@ Real-time rules: all disk I/O for recordings happens on the engine's `WaveInputR
 
 ## Extension points (deferred, not claimed)
 
-- Plugin hosting: the engine supports AU/VST3 (`JUCE_PLUGINHOST_*` are 0 in our build). Enabling requires latency reporting in the UI, state persistence checks and missing-plugin behaviour before we claim it.
+- Plugin formats not hosted: **AAX** (Avid restricts AAX hosting to its own products; the public AAX SDK is for building plugins), **RTAS** (retired by Avid in 2013, 32-bit only), **VST2** (SDK no longer licensed, not GPL-distributable; `-DOPENSESSION_VST2_SDK_DIR` enables it for private builds). LV2 is available in JUCE but not enabled. Instruments are filtered out of the insert menu: tracks are audio-only.
 - Buses/sends: engine `AuxSend/AuxReturn` plugins exist; no UI yet.
 - Automation, MIDI recording, virtual instruments: engine-supported; out of MVP scope.
 - Range comping / punch in-out: engine has `recordingPunchInOut` and comp managers; our take model is whole-take only for now.

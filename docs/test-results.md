@@ -6,9 +6,11 @@ _Run on 2026-10-31. Machine: MacBook Pro (arm64), macOS 27.0.1, Apple clang 21, 
 
 The suite runs the real engine with its `HostedAudioDeviceInterface`: we push synthetic input buffers through the actual recording pipeline, files are written to a temporary session folder, and results are read back from disk. Log: `logs/tests5.log` (local).
 
+Session 3 (2026-10-31, MacBook Air Mac15,12, macOS 26.6.2, Debug) re-ran the suite after adding plugin hosting; counts below are from that run.
+
 ```
-[doctest] test cases:  35 |  35 passed | 0 failed | 0 skipped
-[doctest] assertions: 535 | 535 passed | 0 failed |
+[doctest] test cases:  38 |  38 passed | 0 failed | 0 skipped
+[doctest] assertions: 581 | 581 passed | 0 failed |
 [doctest] Status: SUCCESS!
 ```
 
@@ -43,6 +45,9 @@ The suite runs the real engine with its `HostedAudioDeviceInterface`: we push sy
 | Export tail and click-while-recording-only persist with the session | Session: export tail and click-while-recording-only are stored in the session and survive reopening | pass (5 s tail and flag restored; tail clamped to 0..30 s) |
 | Device changes do not loop the device list or stop playback | Devices: re-applying input defaults on device changes settles and leaves playback running | pass (≤ 4 notifications after a provoked change, transport still playing and advancing); with the old behaviour restored it fails: 3106 notifications, transport stopped at 0 s |
 | Deleting a region never erases the source | Session: deleting a clip from the timeline never deletes its recording | pass |
+| Plugin formats compiled in (session 3) | Plugins: this build hosts VST3 and Audio Unit formats | pass (VST3 + AudioUnit registered, no AAX) |
+| Missing third-party plugin: slot and settings kept, audio unchanged, survives reopen (session 3) | Plugins: a missing third-party plugin keeps its slot and settings… | pass (inserted pre-fader; mix with the missing VST3 equals the mix without it, max difference < 1e-4; description intact after save/reopen) |
+| Parametric EQ display matches what is heard (session 3) | Plugins: parametric EQ display matches the engine's filters | pass (+12 dB peak at 1 kHz: drawn gain equals rendered level change within 3 %) |
 
 ## 2. Hardware (built-in microphone, this Mac)
 

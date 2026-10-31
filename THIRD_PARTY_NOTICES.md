@@ -20,6 +20,8 @@ OpenSession itself is licensed under the GNU General Public License v3.0 or late
 
 Present in the engine tree but **not compiled** into OpenSession (all `TRACKTION_ENABLE_TIMESTRETCH_*` defines are 0 in `CMakeLists.txt`): SoundTouch (LGPL-2.1), Signalsmith Stretch (MIT), RubberBand (GPL; not in tree), zplane Elastique (proprietary; not in tree). Ableton Link is not enabled.
 
-No proprietary SDKs (ASIO, VST2, Elastique) are used or required. No fonts, icons, artwork or audio from other products are included; the demo session is synthesised by `Source/Session/DemoContent.cpp`.
+| VST3 SDK (Steinberg) | `modules/juce/modules/juce_audio_processors_headless/format_types/VST3_SDK` | MIT | Bundled with JUCE; compiled in for VST3 plugin hosting (`JUCE_PLUGINHOST_VST3=1`) |
+
+No proprietary SDKs (ASIO, VST2, AAX, Elastique) are used or required. VST2 hosting is off; a private build can enable it with `-DOPENSESSION_VST2_SDK_DIR`, and such a build must not be distributed. Audio Unit hosting uses Apple's system frameworks. No fonts, icons, artwork or audio from other products are included; the demo session is synthesised by `Source/Session/DemoContent.cpp`.
 
 JUCE and Tracktion are trademarks of their respective owners. Logic Pro, Pro Tools, Ableton Live and REAPER are referenced in `docs/recording-behavior.md` only as documented reference behaviour; no code, assets or branding from them is used.
