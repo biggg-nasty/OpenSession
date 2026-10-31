@@ -45,13 +45,14 @@ Ordered by priority.
 2. ~~Soak result~~ done: 3 min, 8 playback tracks + live input, CPU avg 8.2 % / max 16.0 %, 0 engine warnings, take kept to the end (`docs/test-results.md`).
 3. ~~Release build~~ done: `build-release/OpenSession_artefacts/Release/OpenSession.app` builds cleanly; it has not yet been exercised on hardware (all hardware runs used Debug).
 4. **Hardware checks that need gear we do not have** (document as unverified until done): two simultaneous *hardware* inputs (needs ≥2-input interface), headphone monitoring with the team's setup, loopback latency measurement with a cable (the acoustic speaker→mic attempt did not detect the test signal), overdub alignment measurement after compensation, sustained multi-input session, musician sessions (two performances, take selection, edit, export; collect timings/errors/feedback).
-5. **Publish**: `gh auth login` (interactive, needs the account owner), then `tools/publish.sh` creates the public repo and pushes `main`. Session-1 commits use a placeholder identity ("OpenSession contributors"); from session 2 commits use the local git identity. `tools/bootstrap.sh` handles the SSH→HTTPS submodule rewrite for cloners.
+5. ~~Publish~~ done: public at https://github.com/biggg-nasty/OpenSession (`origin`, default branch `main`); session 2 pushed with a plain `git push origin main`, `tools/publish.sh` is only needed for a fresh repo. Session-1 commits use a placeholder identity ("OpenSession contributors"); from session 2 commits use the local git identity. `tools/bootstrap.sh` handles the SSH→HTTPS submodule rewrite for cloners.
 6. **Nice-to-have after the core is solid**: ~~expose `clickTrackRecordingOnly` and the export tail length in the UI~~ done in session 2 (Transport > Click only while recording; File > Export tail after last clip; both stored in the session, CLI export honours the tail); range-based comping and punch in/out; edit groups; plugin hosting (needs latency reporting, state persistence, missing-plugin behaviour before it can be claimed); automation; MIDI.
 
 ## Session 2 log (2026-10-31)
 
 - Added `CLAUDE.md` (agent guide: pointers, build, gotchas, conventions).
 - Removed the stray committed file `"The directory\n…doesn't have write-access"` and traced it to the engine bug in §5.
+- Pushed to the existing public remote (handoff item 5).
 - Exposed click-only-while-recording and the export tail (handoff item 6, first part); new session test; suite now 34 / 526, all passing. Not yet checked by hand in the GUI.
 
 ## 4. How to build and test
@@ -59,7 +60,7 @@ Ordered by priority.
 Prerequisites (macOS): Xcode Command Line Tools, Homebrew `cmake` (≥3.22; 4.4.5 used) and `ninja`.
 
 ```bash
-git clone <repo-url> OpenSession && cd OpenSession
+git clone https://github.com/biggg-nasty/OpenSession.git OpenSession && cd OpenSession
 # the engine pins JUCE through an SSH URL; rewrite it to HTTPS while fetching
 git -c url.https://github.com/.insteadOf=git@github.com: submodule update --init --recursive --depth 1
 
