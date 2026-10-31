@@ -12,3 +12,5 @@ logs/
 *.xcodeproj
 # Session scratch (demo sessions are committed explicitly under demo/)
 scratch/
+demo/DemoSession.osession/
+build-release/
