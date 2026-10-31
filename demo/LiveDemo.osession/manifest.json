@@ -1,0 +1,11 @@
+{
+  "format": "OpenSession session",
+  "schemaVersion": 1,
+  "name": "LiveDemo",
+  "savedBy": "OpenSession 0.1.0 / Tracktion Engine a5e4499 / JUCE 9.0.5 / Mac OSX 27.0.1 (64-bit)",
+  "modifiedAt": "2026-10-31T16:38:42.988+08:00",
+  "sampleRate": 48000.0,
+  "sessionFile": "session.xml",
+  "audioDirectory": "Audio",
+  "createdAt": "2026-10-31T13:33:52.483+08:00"
+}
