@@ -1,6 +1,6 @@
 # OpenSession — handoff
 
-_Last updated 2026-10-31, session 2 (session 1 notes below still apply)._ Everything below was done on one machine: MacBook Pro (Apple Silicon, arm64), macOS 27.0.1, Command Line Tools only (no Xcode.app), built-in microphone + speakers, no external audio interface._
+_Last updated 2026-10-31, session 2 (session 1 notes below still apply)._ Session 1 was done on one machine: MacBook Pro (Apple Silicon, arm64), macOS 27.0.1, Command Line Tools only (no Xcode.app), built-in microphone + speakers, no external audio interface. Session 2 used a MacBook Air (Mac15,12, macOS 26.6.2), also built-in mic/speakers only._
 
 ## 1. Original goal
 
@@ -43,7 +43,7 @@ Ordered by priority.
 
 1. ~~Remaining docs~~ done: `docs/architecture.md`, `docs/test-results.md`, `README.md`, `THIRD_PARTY_NOTICES.md`, `docs/demo-script.md`, `docs/hardware-procedures.md`, `demo/README.md` (demo session is regenerated with `--make-demo`, not stored).
 2. ~~Soak result~~ done: 3 min, 8 playback tracks + live input, CPU avg 8.2 % / max 16.0 %, 0 engine warnings, take kept to the end (`docs/test-results.md`).
-3. ~~Release build~~ done: `build-release/OpenSession_artefacts/Release/OpenSession.app` builds cleanly; it has not yet been exercised on hardware (all hardware runs used Debug).
+3. ~~Release build~~ done: `build-release/OpenSession_artefacts/Release/OpenSession.app` builds cleanly; session 2 ran the suite, a live smoke take and the demo export on it (second Mac, `docs/test-results.md` §2b).
 4. **Hardware checks that need gear we do not have** (document as unverified until done): two simultaneous *hardware* inputs (needs ≥2-input interface), headphone monitoring with the team's setup, loopback latency measurement with a cable (the acoustic speaker→mic attempt did not detect the test signal), overdub alignment measurement after compensation, sustained multi-input session, musician sessions (two performances, take selection, edit, export; collect timings/errors/feedback).
 5. ~~Publish~~ done: public at https://github.com/biggg-nasty/OpenSession (`origin`, default branch `main`); session 2 pushed with a plain `git push origin main`, `tools/publish.sh` is only needed for a fresh repo. Session-1 commits use a placeholder identity ("OpenSession contributors"); from session 2 commits use the local git identity. `tools/bootstrap.sh` handles the SSH→HTTPS submodule rewrite for cloners.
 6. **Nice-to-have after the core is solid**: ~~expose `clickTrackRecordingOnly` and the export tail length in the UI~~ done in session 2 (Transport > Click only while recording; File > Export tail after last clip; both stored in the session, CLI export honours the tail); range-based comping and punch in/out; edit groups; plugin hosting (needs latency reporting, state persistence, missing-plugin behaviour before it can be claimed); automation; MIDI.
@@ -54,6 +54,7 @@ Ordered by priority.
 - Removed the stray committed file `"The directory\n…doesn't have write-access"` and traced it to the engine bug in §5.
 - Pushed to the existing public remote (handoff item 5).
 - Exposed click-only-while-recording and the export tail (handoff item 6, first part); new session test; suite now 34 / 526, all passing. Not yet checked by hand in the GUI.
+- Demo readiness: `tools/demo-prep.sh` (Release build, suite, fresh demo session, export check, device report); fixed `tools/bootstrap.sh Release`, which configured `buildRelease/` instead of `build-release/`; homepage URL now comes from CMake (`OPENSESSION_HOMEPAGE_URL`) and points at the real repo; mixer hint uses the current EQ / CMP / REV labels; demo script, demo README, README and test results updated. Release verified on a second Mac (MacBook Air, macOS 26.6.2): suite, 6 s mic take, demo export, GUI launch.
 
 ## 4. How to build and test
 
@@ -67,6 +68,7 @@ git -c url.https://github.com/.insteadOf=git@github.com: submodule update --init
 cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug
 cmake --build build -j            # ~30 s wall on an M-series Mac for a full build
 
+tools/demo-prep.sh                # before a demo: Release build, tests, fresh demo session, device report
 APP=build/OpenSession_artefacts/Debug/OpenSession.app/Contents/MacOS/OpenSession
 
 $APP --run-tests                  # deterministic suite, exit code 0 = all passed (~25 s)
@@ -97,7 +99,7 @@ Logs: `~/Library/Logs/OpenSession/opensession.log` (also stderr). Engine setting
 - **Take activation mutes whole clips**: partially overlapping takes are muted entirely, including their non-overlapping part. Whole-take selection only; no range comping.
 - **Acoustic loopback did not detect the engine's spike pattern** through speakers→mic on this Mac at the current system volume; a cable loopback on a real interface is the intended path. Driver-reported latency is still applied automatically.
 - **Mic input clipped** in the first hardware take (room noise + mic gain at 0 dBFS); the app reports it, does not hide it. Lower input gain in macOS Sound settings / on the interface.
-- **Debug build only so far**; CPU figures in the status bar are from Debug.
+- CPU/soak figures in `docs/test-results.md` are from the Debug build; the Release build has passed the suite and a smoke take but no soak yet.
 - **One input per track**; stereo = a 2-channel input pair assigned to one track (Audio Settings → "Inputs 1+2 as stereo pair").
 - **macOS microphone permission** cannot be queried from JUCE; the app explains what to do if the input meter stays silent. Running from a terminal attributes the permission to the terminal app.
 - **Status quo**: no musician has used the app yet; hypotheses in `docs/cost-and-competition.md` are untested.

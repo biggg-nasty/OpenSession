@@ -213,7 +213,7 @@ void ChannelStrip::openPluginEditor()
 
     if (plugins.isEmpty())
     {
-        ctx.status ("No inserts on this channel yet - click EQ, Comp or Verb to add one");
+        ctx.status ("No inserts on this channel yet - click EQ, CMP or REV to add one");
         return;
     }
 

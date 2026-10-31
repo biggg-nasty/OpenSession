@@ -10,7 +10,7 @@ cmake_minimum_required(VERSION 3.22)
 project(OpenSession
         VERSION 0.1.0
         DESCRIPTION "Recording-first multitrack DAW"
-        HOMEPAGE_URL "https://github.com/opensession-daw/OpenSession"
+        HOMEPAGE_URL "https://github.com/biggg-nasty/OpenSession"
         LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 20)
@@ -134,7 +134,8 @@ target_compile_definitions(OpenSession PRIVATE
     TRACKTION_ENABLE_TIMESTRETCH_SOUNDTOUCH=0
     TRACKTION_UNIT_TESTS=0
     TRACKTION_LOG_DEVICES=1
-    OPENSESSION_BUILD_TESTS=$<BOOL:${OPENSESSION_BUILD_TESTS}>)
+    OPENSESSION_BUILD_TESTS=$<BOOL:${OPENSESSION_BUILD_TESTS}>
+    OPENSESSION_HOMEPAGE_URL="${PROJECT_HOMEPAGE_URL}")
 
 target_link_libraries(OpenSession PRIVATE
     tracktion::tracktion_core

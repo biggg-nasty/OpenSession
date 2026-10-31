@@ -5,5 +5,6 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 git -c url.https://github.com/.insteadOf=git@github.com: submodule update --init --recursive --depth 1
 BUILD_TYPE="${1:-Debug}"
-cmake -S . -B "build${BUILD_TYPE/Debug/}" -G Ninja -DCMAKE_BUILD_TYPE="$BUILD_TYPE"
-echo "Configured. Build with: cmake --build build${BUILD_TYPE/Debug/} -j"
+if [ "$BUILD_TYPE" = Debug ]; then BUILD_DIR=build; else BUILD_DIR="build-$(echo "$BUILD_TYPE" | tr '[:upper:]' '[:lower:]')"; fi
+cmake -S . -B "$BUILD_DIR" -G Ninja -DCMAKE_BUILD_TYPE="$BUILD_TYPE"
+echo "Configured. Build with: cmake --build $BUILD_DIR -j"

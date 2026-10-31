@@ -671,7 +671,7 @@ void MainComponent::showAbout()
         OpenSessionEngine::getBuildDescription() + "\n\n"
         "OpenSession is free software under the GNU GPL v3 or later.\n"
         "Built on Tracktion Engine (GPLv3) and JUCE (AGPLv3). See THIRD_PARTY_NOTICES.md.\n\n"
-        "Source: https://github.com/opensession-daw/OpenSession");
+        "Source: " OPENSESSION_HOMEPAGE_URL);
 }
 
 //==============================================================================

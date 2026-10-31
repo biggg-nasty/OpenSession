@@ -14,6 +14,8 @@ cmake --build build -j
 build/OpenSession_artefacts/Debug/OpenSession.app/Contents/MacOS/OpenSession --run-tests   # exit 0 = pass
 ```
 
+Before a demo: `tools/demo-prep.sh` (Release build in `build-release/`, tests, fresh `demo/DemoSession.osession`).
+
 The test suite is compiled into the app; doctest filters pass through (`-tc="*Recording*"`). Run one instance at a time: tests share the engine settings file. New source files must be added to `OPENSESSION_SOURCES` in `CMakeLists.txt`.
 
 ## Gotchas

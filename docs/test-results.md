@@ -59,9 +59,22 @@ The suite runs the real engine with its `HostedAudioDeviceInterface`: we push sy
 | Export mix/stems of a hardware recording and play them | `--export-mix` on the smoke session | see section 3 |
 | Musician sessions (two performances, take selection, edit, export; timings/errors/feedback) | — | **not run yet** |
 
+### 2b. Release build on a second Mac (session 2, 2026-10-31)
+
+Machine: MacBook Air (Mac15,12, arm64), macOS 26.6.2, Apple clang 17.0.0, CMake 4.4.5, Ninja 1.13.2. Built-in microphone and speakers, no interface. Run through `tools/demo-prep.sh`.
+
+| Check | Command / method | Result |
+|---|---|---|
+| Self-test suite, Release build | `--run-tests` | **pass**: 34 / 34 cases, 526 / 526 assertions |
+| Record a real input, Release build | `--smoke-record <scratch>/Smoke.osession 6` | **pass**: `Smoke_input_20261031-141123_01.wav`, 48 000 Hz, 1 ch, 24-bit, 283 145 frames = 5.899 s, peak −4.2 dBFS, clip at 0 s, session saved; `afinfo` reads a valid 24-bit WAVE of 5.8989 s |
+| Device facts reported | `--print-audio-settings` | CoreAudio; buffer 512 frames = 10.67 ms; driver-reported latency in 2993 + out 1606 frames = 95.81 ms round trip; engine record adjustment 95.81 ms (driver-derived) |
+| Demo session generation and export | `--make-demo demo/DemoSession.osession 48`, `--export-mix`, `--export-stems` | **pass**: mix and 4 stems all 50.00 s (48 s + 2 s default tail), 2 ch; mix peak −1.4 dBFS, no clipping |
+| GUI launch on the demo session, Release build | app launched with the session path, observed 8 s | **pass**: session opened, no errors logged. Menus and new items (Click only while recording, Export tail) not exercised by hand. |
+
 ## 3. Reproducing
 
 ```bash
+tools/demo-prep.sh                 # Release build + suite + demo session + export check + device report
 APP=build/OpenSession_artefacts/Debug/OpenSession.app/Contents/MacOS/OpenSession
 $APP --run-tests
 $APP --print-audio-settings

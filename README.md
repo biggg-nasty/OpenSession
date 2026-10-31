@@ -16,7 +16,7 @@ A recording-first, open-source multitrack DAW for musicians who record live inst
 - Export: stereo mix and per-track stems with identical start and length, clipping reported, nothing normalised.
 - A 34-case deterministic self-test suite runs the real engine with synthetic input (`--run-tests`), plus command-line hardware checks (`--smoke-record`, `--soak`, `--measure-latency`).
 
-Tested platform: macOS 27.0.1 on Apple Silicon with the built-in microphone. No external interface, Windows or Linux has been tested yet; see "Limits".
+Tested platforms: macOS 27.0.1 (MacBook Pro) and macOS 26.6.2 (MacBook Air), Apple Silicon, built-in microphone; Debug and Release builds. No external interface, Windows or Linux has been tested yet; see "Limits".
 
 ## Build
 
@@ -30,6 +30,8 @@ open build/OpenSession_artefacts/Debug/OpenSession.app
 ```
 
 Release build: `tools/bootstrap.sh Release && cmake --build build-release -j`.
+
+Demo machine prep (Release build, tests, fresh demo session, export check, device report): `tools/demo-prep.sh`.
 
 ## Test
 

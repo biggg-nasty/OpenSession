@@ -79,4 +79,4 @@ Real-time rules: all disk I/O for recordings happens on the engine's `WaveInputR
 
 ## Tested platform
 
-macOS 27.0.1 (arm64), CoreAudio, MacBook Pro built-in microphone and speakers (JUCE 9 combines them into a private aggregate device), Apple clang 21, CMake 4.4.5, Ninja 1.13.2. No other OS, driver (ASIO, ALSA, WASAPI) or interface has been tested; the code paths exist in JUCE but we do not claim them.
+macOS 27.0.1 (arm64), CoreAudio, MacBook Pro built-in microphone and speakers (JUCE 9 combines them into a private aggregate device), Apple clang 21, CMake 4.4.5, Ninja 1.13.2. Session 2 also ran the Release build on macOS 26.6.2 (MacBook Air Mac15,12, built-in mic and speakers, Apple clang 17.0.0). No other OS, driver (ASIO, ALSA, WASAPI) or interface has been tested; the code paths exist in JUCE but we do not claim them.
