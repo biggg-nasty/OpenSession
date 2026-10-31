@@ -89,6 +89,9 @@ private:
     bool stopReported = false;
     struct InProgressFile { juce::File original, safetyLink; };
     std::vector<InProgressFile> inProgressFiles;
+    juce::Array<juce::File> audioFilesBeforePass;
+
+    void removeEmptyLeftovers();
 
     void protectInProgressFiles();
     void releaseOrRecoverInProgressFiles (bool recordingsWereKept);

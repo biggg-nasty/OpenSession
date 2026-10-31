@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "Recording.h"
 #include "../Session/WavRepair.h"
+#include "OpenSessionEngine.h"
 
 namespace opensession
 {
@@ -239,7 +240,39 @@ void RecordingController::recordingStarted (te::SyncPoint, std::optional<te::Tim
     armedWhenRecordingStarted = getNumArmedTracks();
     clipsRecordedThisPass = 0;
     stopReported = false;
+    audioFilesBeforePass.clear();
+
+    if (auto dir = OpenSessionEngine::getAudioDirectoryForEdit (edit); dir.isDirectory())
+        audioFilesBeforePass = dir.findChildFiles (juce::File::findFiles, false, "*.wav");
+
     protectInProgressFiles();
+}
+
+void RecordingController::removeEmptyLeftovers()
+{
+    // The engine can open a recording file more than once while preparing a pass (we have seen a
+    // header-only "_01.wav" next to the real "_02.wav"). A WAV with no sample data that no clip
+    // references is noise for the user, so it is removed here.
+    auto dir = OpenSessionEngine::getAudioDirectoryForEdit (edit);
+
+    if (! dir.isDirectory())
+        return;
+
+    juce::Array<juce::File> referenced;
+
+    for (auto* t : te::getAudioTracks (edit))
+        for (auto* c : t->getClips())
+            if (auto* wc = dynamic_cast<te::WaveAudioClip*> (c))
+                referenced.add (wc->getSourceFileReference().getFile());
+
+    for (const auto& f : dir.findChildFiles (juce::File::findFiles, false, "*.wav"))
+    {
+        if (audioFilesBeforePass.contains (f) || referenced.contains (f))
+            continue;
+
+        if (f.getSize() < 4096 && WavRepair::inspect (f).actualDataSize <= 0)
+            f.deleteFile();
+    }
 }
 
 void RecordingController::protectInProgressFiles()
@@ -306,6 +339,9 @@ void RecordingController::releaseOrRecoverInProgressFiles (bool recordingsWereKe
 
     inProgressFiles.clear();
 
+    if (auto folder = getIncompleteTakesFolder (edit); folder.isDirectory() && folder.getNumberOfChildFiles (juce::File::findFilesAndDirectories) == 0)
+        folder.deleteFile();
+
     if (! recovered.isEmpty())
     {
         lastError = "The take did not complete, but its audio was preserved in Audio/Incomplete: " + recovered.joinIntoString (", ")
@@ -334,6 +370,7 @@ void RecordingController::recordingStopped (te::SyncPoint, bool discardRecording
 
     const bool anyClipCreated = clipsRecordedThisPass > 0 || countWaveClips (edit) != clipsWhenRecordingStarted;
     releaseOrRecoverInProgressFiles (anyClipCreated);
+    removeEmptyLeftovers();
 
     // The engine can fail to open a file (permissions, disk) or abort a take (device rebuild) without
     // raising a UI warning; we notice because armed tracks produced no clips.

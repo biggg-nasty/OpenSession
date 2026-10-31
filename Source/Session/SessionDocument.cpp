@@ -616,7 +616,7 @@ juce::Array<juce::File> SessionDocument::findOrphanRecordings() const
     juce::Array<juce::File> orphans;
 
     for (const auto& f : getAudioDirectory().findChildFiles (juce::File::findFiles, false, "*.wav"))
-        if (! referenced.contains (f) && ! f.getFileName().startsWithChar ('.'))
+        if (! referenced.contains (f) && ! f.getFileName().startsWithChar ('.') && WavRepair::inspect (f).actualDataSize > 0)
             orphans.add (f);
 
     // Takes preserved after an aborted recording (see RecordingController) live one level down.
