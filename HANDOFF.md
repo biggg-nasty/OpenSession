@@ -1,6 +1,6 @@
 # OpenSession — handoff
 
-_Last updated 2026-10-31 (session 1). Everything below was done on one machine: MacBook Pro (Apple Silicon, arm64), macOS 27.0.1, Command Line Tools only (no Xcode.app), built-in microphone + speakers, no external audio interface._
+_Last updated 2026-10-31, end of session 1. Everything below was done on one machine: MacBook Pro (Apple Silicon, arm64), macOS 27.0.1, Command Line Tools only (no Xcode.app), built-in microphone + speakers, no external audio interface._
 
 ## 1. Original goal
 
@@ -41,11 +41,11 @@ Constraints from the brief: native desktop app on JUCE + Tracktion Engine (pinne
 
 Ordered by priority.
 
-1. **Finish the remaining docs**: `docs/architecture.md` (reused engine vs original work), `docs/test-results.md` (automated vs hardware, with the numbers above and the soak result), `README.md` (build/run/demo), `THIRD_PARTY_NOTICES.md` (JUCE 9.0.5 AGPLv3, Tracktion Engine 3.5.0 GPLv3-or-later, choc, crill (Boost), doctest (MIT), tl::expected (CC0), libsamplerate (BSD-2), magic_enum (MIT), rigtorp MPMCQueue (MIT), rpmalloc (public domain), airwindows (MIT), concurrentqueue (BSD), farbot (MIT); SoundTouch/Signalsmith/RubberBand/Elastique are present in the tree but **not compiled** — our defines are all 0), `docs/demo-script.md`, `docs/hardware-procedures.md` (manual steps for the checks not runnable here).
-2. **Soak result**: `--soak scratch/Soak1.osession 3 8` (8 playback tracks + live input, 3 min) was running when this file was written; its output goes to `logs/hw-chain1.log`. Record the CPU/dropout numbers in `docs/test-results.md`.
-3. **Release build** for the demo: `cmake -S . -B build-release -G Ninja -DCMAKE_BUILD_TYPE=Release && cmake --build build-release -j`. Only Debug has been built and run so far.
+1. ~~Remaining docs~~ done: `docs/architecture.md`, `docs/test-results.md`, `README.md`, `THIRD_PARTY_NOTICES.md`, `docs/demo-script.md`, `docs/hardware-procedures.md`, `demo/README.md` (demo session is regenerated with `--make-demo`, not stored).
+2. ~~Soak result~~ done: 3 min, 8 playback tracks + live input, CPU avg 8.2 % / max 16.0 %, 0 engine warnings, take kept to the end (`docs/test-results.md`).
+3. ~~Release build~~ done: `build-release/OpenSession_artefacts/Release/OpenSession.app` builds cleanly; it has not yet been exercised on hardware (all hardware runs used Debug).
 4. **Hardware checks that need gear we do not have** (document as unverified until done): two simultaneous *hardware* inputs (needs ≥2-input interface), headphone monitoring with the team's setup, loopback latency measurement with a cable (the acoustic speaker→mic attempt did not detect the test signal), overdub alignment measurement after compensation, sustained multi-input session, musician sessions (two performances, take selection, edit, export; collect timings/errors/feedback).
-5. **Publish**: create the public GitHub repo, push `main` with the submodule, confirm the licence shows in the repo header. Note the nested JUCE submodule uses an SSH URL; `tools/` should get a `bootstrap.sh` that runs `git -c url.https://github.com/.insteadOf=git@github.com: submodule update --init --recursive`.
+5. **Publish**: `gh auth login` (interactive, needs the account owner), then `tools/publish.sh` creates the public repo and pushes `main`. Commits so far use a placeholder identity ("OpenSession contributors"); set `git config user.name/email` before further commits. `tools/bootstrap.sh` handles the SSH→HTTPS submodule rewrite for cloners.
 6. **Nice-to-have after the core is solid**: expose `clickTrackRecordingOnly` and the export tail length in the UI; range-based comping and punch in/out; edit groups; plugin hosting (needs latency reporting, state persistence, missing-plugin behaviour before it can be claimed); automation; MIDI.
 
 ## 4. How to build and test

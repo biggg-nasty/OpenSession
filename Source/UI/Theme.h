@@ -66,9 +66,11 @@ namespace opensession::theme
             setColour (juce::TabbedComponent::backgroundColourId, panel);
         }
 
-        juce::Font getTextButtonFont (juce::TextButton&, int buttonHeight) override
+        juce::Font getTextButtonFont (juce::TextButton& b, int buttonHeight) override
         {
-            return juce::Font (juce::FontOptions ((float) juce::jmin (14, buttonHeight - 4)));
+            // Narrow buttons (mixer insert slots) get a smaller face so "CMP"/"REV" are not elided.
+            const int cap = b.getWidth() < 40 ? 10 : 14;
+            return juce::Font (juce::FontOptions ((float) juce::jmin (cap, buttonHeight - 4)));
         }
     };
 }
