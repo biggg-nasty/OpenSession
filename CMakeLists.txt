@@ -82,6 +82,8 @@ set(OPENSESSION_SOURCES
     Source/Session/Exporter.cpp
     Source/Session/WavRepair.h
     Source/Session/WavRepair.cpp
+    Source/Session/DemoContent.h
+    Source/Session/DemoContent.cpp
     Source/UI/Theme.h
     Source/UI/SessionContext.h
     Source/UI/TransportBar.h

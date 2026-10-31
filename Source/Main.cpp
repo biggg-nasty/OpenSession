@@ -13,6 +13,8 @@
 #include "Session/SessionDocument.h"
 #include "Session/Exporter.h"
 #include "Engine/Recording.h"
+#include "Engine/LatencyCalibration.h"
+#include "Session/DemoContent.h"
 
 #if OPENSESSION_BUILD_TESTS
  #include "Tests/TestMain.h"
@@ -95,6 +97,28 @@ public:
         if (cl.mode == CommandLine::Mode::smokeRecord)
         {
             startSmokeRecord (cl);
+            return;
+        }
+
+        if (cl.mode == CommandLine::Mode::measureLatency)
+        {
+            startLatencyMeasurement();
+            return;
+        }
+
+        if (cl.mode == CommandLine::Mode::makeDemo)
+        {
+            const double sr = engine->getEngine().getDeviceManager().getSampleRate() > 0 ? engine->getEngine().getDeviceManager().getSampleRate() : 48000.0;
+            auto r = DemoContent::makeDemoSession (engine->getEngine(), cl.sessionToOpen, sr, cl.demoSeconds);
+            std::cout << (r.wasOk() ? "Demo session written to " + cl.sessionToOpen.getFullPathName() : "FAILED: " + r.getErrorMessage()) << "\n";
+            setApplicationReturnValue (r.wasOk() ? 0 : 1);
+            quit();
+            return;
+        }
+
+        if (cl.mode == CommandLine::Mode::soak)
+        {
+            startSoak (cl);
             return;
         }
 
@@ -186,13 +210,13 @@ public:
         void recordingAboutToStop (te::InputDeviceInstance&, te::EditItemID) override { std::cout << stamp() << "recordingAboutToStop\n"; }
         void recordingFinished (te::InputDeviceInstance&, te::EditItemID, const juce::ReferenceCountedArray<te::Clip>& clips) override { std::cout << stamp() << "recordingFinished: " << clips.size() << " clip(s)\n"; }
 
-        void valueTreePropertyChanged (juce::ValueTree& v, const juce::Identifier& id) override
+        // Only structural changes to the Edit's device list are traced: a rebuild here mid-take is the
+        // failure mode that silently killed recordings before the MIDI-rescan fix.
+        void valueTreeChildAdded (juce::ValueTree& p, juce::ValueTree& c) override
         {
-            if (! v.hasType (te::IDs::TRANSPORT) && id != te::IDs::position)
-                std::cout << stamp() << "state change: " << v.getType().toString() << "." << id.toString() << " = " << v[id].toString() << "\n";
+            if (p.hasType (te::IDs::INPUTDEVICES) || c.hasType (te::IDs::INPUTDEVICE))
+                std::cout << stamp() << "WARNING: input device list rebuilt during the take\n";
         }
-        void valueTreeChildAdded (juce::ValueTree& p, juce::ValueTree& c) override   { std::cout << stamp() << "child added: " << p.getType().toString() << " > " << c.getType().toString() << "\n"; }
-        void valueTreeChildRemoved (juce::ValueTree& p, juce::ValueTree& c, int) override { std::cout << stamp() << "child removed: " << p.getType().toString() << " > " << c.getType().toString() << "\n"; }
 
         std::unique_ptr<SessionDocument> doc;
         std::unique_ptr<RecordingController> recording;
@@ -304,10 +328,7 @@ public:
                           << " unlooped=" << (epc != nullptr ? epc->getUnloopedPosition().inSeconds() : -1.0)
                           << " epcPlaying=" << (epc != nullptr && epc->isPlaying() ? "yes" : "no") << "\n";
 
-                if (juce::SystemStats::getEnvironmentVariable ("OPENSESSION_SMOKE_CLEARDEVICES", "0") == "1")
-                    tc.stop (false, true);
-                else
-                    smoke->recording->stopRecording();
+                smoke->recording->stopRecording();
 
                 juce::MessageManager::getInstance()->runDispatchLoopUntil (300);
                 std::cout << "  [stop] after: position=" << tc.getPosition().inSeconds() << "\n";
@@ -349,8 +370,159 @@ public:
         quit();
     }
 
+    //==============================================================================
+    std::unique_ptr<LatencyCalibrator> calibrator;
+
+    void startLatencyMeasurement()
+    {
+        std::cout << "== OpenSession loopback latency measurement ==\n" << DeviceSetup::getSummary (engine->getEngine()).toMultiLineString()
+                  << "\nPlaying a spike pattern on the output and listening on the input (cable loopback, or speaker -> mic)...\n";
+        calibrator = std::make_unique<LatencyCalibrator> (engine->getEngine());
+        calibrator->start ([this] (LatencyCalibrator::Result r)
+        {
+            std::cout << r.describe() << "\n";
+            setApplicationReturnValue (r.success ? 0 : 1);
+            juce::MessageManager::callAsync ([this] { calibrator.reset(); quit(); });
+        });
+    }
+
+    //==============================================================================
+    struct SoakState
+    {
+        std::unique_ptr<SessionDocument> doc;
+        std::unique_ptr<RecordingController> recording;
+        double startMs = 0, seconds = 0;
+        int ticks = 0, errorLogLines = 0;
+        float cpuMax = 0, cpuSum = 0;
+        int cpuSamples = 0;
+    };
+
+    std::unique_ptr<SoakState> soak;
+
+    struct SoakLogger : public juce::Logger
+    {
+        SoakLogger (juce::Logger* inner_, int& errors_) : inner (inner_), errors (errors_) {}
+        void logMessage (const juce::String& m) override
+        {
+            if (m.containsIgnoreCase ("can't keep up") || m.containsIgnoreCase ("failed to write") || m.containsIgnoreCase ("Record fail") || m.containsIgnoreCase ("[engine warning]"))
+                ++errors;
+            if (inner != nullptr) std::cerr << m << std::endl;
+        }
+        juce::Logger* inner; int& errors;
+    };
+    std::unique_ptr<SoakLogger> soakLogger;
+
+    void startSoak (const CommandLine& cl)
+    {
+        soak = std::make_unique<SoakState>();
+        soak->seconds = cl.soakMinutes * 60.0;
+        auto& te_engine = engine->getEngine();
+        const double sr = te_engine.getDeviceManager().getSampleRate() > 0 ? te_engine.getDeviceManager().getSampleRate() : 48000.0;
+
+        std::cout << "== OpenSession soak test: " << cl.soakTracks << " playback tracks + 1 live input for " << cl.soakMinutes << " min ==\n"
+                  << DeviceSetup::getSummary (te_engine).toMultiLineString() << "\n";
+
+        juce::String error;
+        soak->doc = SessionDocument::createNew (te_engine, cl.sessionToOpen, cl.sessionToOpen.getFileNameWithoutExtension(), error);
+        if (soak->doc == nullptr) { std::cerr << error << "\n"; setApplicationReturnValue (1); quit(); return; }
+
+        std::cout << "Generating " << cl.soakTracks << " tone files of " << soak->seconds << " s...\n";
+        if (auto r = DemoContent::makeSoakSession (te_engine, *soak->doc, cl.soakTracks, soak->seconds, sr); r.failed())
+        { std::cerr << r.getErrorMessage() << "\n"; setApplicationReturnValue (1); quit(); return; }
+
+        auto& edit = soak->doc->getEdit();
+        edit.setCountInMode (te::Edit::CountIn::none);
+        edit.clickTrackEnabled = true;
+        soak->recording = std::make_unique<RecordingController> (te_engine, edit);
+        auto inputs = soak->recording->getAvailableInputs();
+        auto& liveTrack = *te::getAudioTracks (edit).getLast();
+
+        if (! inputs.empty())
+        {
+            soak->recording->assignInput (liveTrack, inputs[0]);
+            soak->recording->setArmed (liveTrack, true);
+        }
+        else
+            std::cout << "No input device available: playback-only soak\n";
+
+        soak->recording->onError = [] (const juce::String& e) { std::cerr << "Recording error: " << e << "\n"; };
+        edit.dispatchPendingUpdatesSynchronously();
+
+        soakLogger = std::make_unique<SoakLogger> (juce::Logger::getCurrentLogger(), soak->errorLogLines);
+        juce::Logger::setCurrentLogger (soakLogger.get());
+
+        auto r = inputs.empty() ? juce::Result::ok() : soak->recording->startRecording();
+        if (inputs.empty()) edit.getTransport().play (false);
+        if (r.failed()) { std::cerr << r.getErrorMessage() << "\n"; setApplicationReturnValue (1); quit(); return; }
+
+        soak->startMs = juce::Time::getMillisecondCounterHiRes();
+        std::cout << "Running... (progress every 15 s)\n";
+        soakTick();
+    }
+
+    void soakTick()
+    {
+        if (soak == nullptr) return;
+        auto& te_engine = engine->getEngine();
+        auto& dm = te_engine.getDeviceManager();
+        const float cpu = dm.getCpuUsage();
+        soak->cpuMax = std::max (soak->cpuMax, cpu);
+        soak->cpuSum += cpu; ++soak->cpuSamples;
+        const double elapsed = (juce::Time::getMillisecondCounterHiRes() - soak->startMs) / 1000.0;
+
+        if (++soak->ticks % 15 == 0)
+            std::cout << "  " << juce::String (elapsed, 0) << " s: position " << juce::String (soak->doc->getEdit().getTransport().getPosition().inSeconds(), 1)
+                      << " s, CPU now " << juce::String (cpu * 100.0f, 1) << "%, max " << juce::String (soak->cpuMax * 100.0f, 1)
+                      << "%, recording=" << (soak->doc->getEdit().getTransport().isRecording() ? "yes" : "NO") << ", engine warnings=" << soak->errorLogLines << "\n";
+
+        if (elapsed < soak->seconds + 1.0)
+        {
+            juce::Timer::callAfterDelay (1000, [this] { soakTick(); });
+            return;
+        }
+
+        auto& edit = soak->doc->getEdit();
+        const bool wasRecording = edit.getTransport().isRecording();
+        soak->recording->stopRecording();
+        edit.getTransport().stop (false, false);
+        juce::MessageManager::getInstance()->runDispatchLoopUntil (500);
+
+        auto clips = te::getAudioTracks (edit).getLast()->getClips();
+        std::cout << "\n== Soak result ==\n"
+                  << "Device: " << DeviceSetup::getSummary (te_engine).inputDeviceName << " / " << DeviceSetup::getSummary (te_engine).outputDeviceName
+                  << ", " << dm.getSampleRate() << " Hz, buffer " << dm.getBlockSize() << " frames\n"
+                  << "Playback tracks: " << (te::getAudioTracks (edit).size() - 1) << ", live input tracks: 1\n"
+                  << "Duration requested: " << soak->seconds << " s; transport stayed in record until the end: " << (wasRecording ? "yes" : "NO") << "\n"
+                  << "CPU (engine measure): avg " << juce::String (100.0f * soak->cpuSum / std::max (1, soak->cpuSamples), 1) << "%, max " << juce::String (soak->cpuMax * 100.0f, 1) << "%\n"
+                  << "Engine warnings/errors logged: " << soak->errorLogLines << "\n"
+                  << "Output clipped flag: " << (dm.hasOutputClipped (true) ? "yes" : "no") << "\n";
+
+        if (! clips.isEmpty())
+        {
+            auto f = clips[0]->getSourceFileReference().getFile();
+            auto info = Exporter::inspectFile (te_engine, f);
+            std::cout << "Recorded: " << f.getFileName() << " = " << juce::String (info.durationSeconds, 3) << " s (expected about " << soak->seconds << " s), peak "
+                      << juce::String (juce::Decibels::gainToDecibels (info.peakLinear), 1) << " dBFS\n";
+            setApplicationReturnValue (std::abs (info.durationSeconds - soak->seconds) < 1.5 && soak->errorLogLines == 0 ? 0 : 1);
+        }
+        else
+        {
+            std::cout << "Recorded: no clip\n";
+            setApplicationReturnValue (1);
+        }
+
+        auto r = soak->doc->save();
+        std::cout << (r.wasOk() ? "Session saved: " + soak->doc->getSessionFile().getFullPathName() : "SAVE FAILED: " + r.getErrorMessage()) << "\n";
+        juce::Logger::setCurrentLogger (soakLogger->inner);
+        soakLogger.reset();
+        soak.reset();
+        quit();
+    }
+
     void shutdown() override
     {
+        soak.reset();
+        calibrator.reset();
         smoke.reset();
         mainWindow.reset();
         engine.reset();
