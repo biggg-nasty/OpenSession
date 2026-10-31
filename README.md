@@ -23,7 +23,7 @@ Tested platform: macOS 27.0.1 on Apple Silicon with the built-in microphone. No 
 Requires Xcode Command Line Tools, CMake ≥ 3.22 and Ninja (`brew install cmake ninja`).
 
 ```bash
-git clone https://github.com/<you>/OpenSession.git && cd OpenSession
+git clone https://github.com/biggg-nasty/OpenSession.git && cd OpenSession
 tools/bootstrap.sh              # fetches pinned Tracktion Engine + JUCE over HTTPS, configures build/
 cmake --build build -j
 open build/OpenSession_artefacts/Debug/OpenSession.app
