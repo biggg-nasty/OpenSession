@@ -1,0 +1,14 @@
+# Build outputs
+build/
+cmake-build*/
+logs/
+*.log
+# macOS
+.DS_Store
+# IDE
+.vscode/
+.idea/
+*.xcworkspace
+*.xcodeproj
+# Session scratch (demo sessions are committed explicitly under demo/)
+scratch/
