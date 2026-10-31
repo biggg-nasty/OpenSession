@@ -142,6 +142,7 @@ public:
 
         ExportOptions o;
         o.destination = cl.exportDestination;
+        o.tail = te::TimeDuration::fromSeconds (doc->getExportTailSeconds());
         o.sampleRate = engine->getEngine().getDeviceManager().getSampleRate() > 0 ? engine->getEngine().getDeviceManager().getSampleRate() : 48000.0;
 
         if (cl.mode == CommandLine::Mode::exportMix)

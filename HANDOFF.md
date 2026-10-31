@@ -1,6 +1,6 @@
 # OpenSession — handoff
 
-_Last updated 2026-10-31, end of session 1. Everything below was done on one machine: MacBook Pro (Apple Silicon, arm64), macOS 27.0.1, Command Line Tools only (no Xcode.app), built-in microphone + speakers, no external audio interface._
+_Last updated 2026-10-31, session 2 (session 1 notes below still apply)._ Everything below was done on one machine: MacBook Pro (Apple Silicon, arm64), macOS 27.0.1, Command Line Tools only (no Xcode.app), built-in microphone + speakers, no external audio interface._
 
 ## 1. Original goal
 
@@ -20,11 +20,11 @@ Constraints from the brief: native desktop app on JUCE + Tracktion Engine (pinne
 | Recording controller: one input per track, arm, OFF/AUTO/ON monitoring, write-ability pre-check, "nothing captured" detection, take policy (overlapping clips = take group, newest active, exactly one unmuted), in-progress take protection via hard link + WAV header repair | `Engine/Recording.*`, `Session/WavRepair.*` | done |
 | Loopback latency calibrator (measured minus driver-reported = residual; no double compensation) | `Engine/LatencyCalibration.*` | done, **not yet successfully measured on hardware** |
 | Session document: folder format, atomic save with previous snapshot, autosave + recovery, collect-and-save, import (copies into Audio/), missing-file and orphan/incomplete-take detection and recovery, schema version | `Session/SessionDocument.*` | done |
-| Exporter: stereo mix + per-track stems, same range (0 → last clip end + 2 s tail), 24-bit, no normalisation, clipping reported | `Session/Exporter.*` | done |
+| Exporter: stereo mix + per-track stems, same range (0 → last clip end + tail; tail per session, default 2 s), 24-bit, no normalisation, clipping reported | `Session/Exporter.*` | done |
 | Synthetic demo/soak content (Karplus-Strong plucks, sine bass, noise drums, formant tone; all ours) | `Session/DemoContent.*` | done |
 | UI: transport (play/stop/rec/to-start, clock + bars, tempo, click, count-in, snap, take lanes), track headers (name, input chooser, R, MON, M, S, input meter, output meter), timeline (ruler, grid, zoom/scroll, playhead, recording overlay, take lanes), clips (real waveform, trim/move/fades/gain, context menu, double-click = activate take), mixer (fader, pan, M/S, EQ/compressor/reverb inserts with generic parameter editor, master), audio settings panel, status bar, menus + shortcuts, recovery/missing-file prompts | `UI/*`, `App/*` | done |
 | Command line: `--run-tests`, `--export-mix`, `--export-stems`, `--print-audio-settings`, `--smoke-record`, `--measure-latency`, `--make-demo`, `--soak` | `App/CommandLine.*`, `Main.cpp` | done |
-| Self-test suite (doctest, hosted audio device = synthetic input, deterministic) | `Tests/*` | **33 cases / 516 assertions passing** |
+| Self-test suite (doctest, hosted audio device = synthetic input, deterministic) | `Tests/*` | **34 cases / 526 assertions passing** |
 
 ### Verified on this machine
 - **Automated** (`OpenSession --run-tests`): known-signal capture to 48 kHz/24-bit mono WAV with exact frame count and sample alignment; two simultaneous inputs → independent files with channel isolation; playback/click/monitoring absent from dry capture; fader/pan/EQ do not alter recordings; stereo input pair → 2-channel file; repeated passes become takes with exactly one active; monitoring independent of arming; unwritable Audio folder → reported failure, no clip; split/trim/move/duplicate/delete/fades/gain/undo with source offsets preserved; snapping optional; tempo change does not move audio; mix and stems (format, range, gain/mute/solo/pan, EQ bypass transparency, stems sum to mix, leading silence kept, clipping flagged, muted track → silent stem); save/reopen after moving the folder; atomic save + previous snapshot; corrupt file → clear error / snapshot fallback; read-only folder → save fails, audio intact; autosave recovery; collect-and-save; import; missing-file detection; orphan + header-repair recovery; abort keeps nothing.
@@ -45,8 +45,14 @@ Ordered by priority.
 2. ~~Soak result~~ done: 3 min, 8 playback tracks + live input, CPU avg 8.2 % / max 16.0 %, 0 engine warnings, take kept to the end (`docs/test-results.md`).
 3. ~~Release build~~ done: `build-release/OpenSession_artefacts/Release/OpenSession.app` builds cleanly; it has not yet been exercised on hardware (all hardware runs used Debug).
 4. **Hardware checks that need gear we do not have** (document as unverified until done): two simultaneous *hardware* inputs (needs ≥2-input interface), headphone monitoring with the team's setup, loopback latency measurement with a cable (the acoustic speaker→mic attempt did not detect the test signal), overdub alignment measurement after compensation, sustained multi-input session, musician sessions (two performances, take selection, edit, export; collect timings/errors/feedback).
-5. **Publish**: `gh auth login` (interactive, needs the account owner), then `tools/publish.sh` creates the public repo and pushes `main`. Commits so far use a placeholder identity ("OpenSession contributors"); set `git config user.name/email` before further commits. `tools/bootstrap.sh` handles the SSH→HTTPS submodule rewrite for cloners.
-6. **Nice-to-have after the core is solid**: expose `clickTrackRecordingOnly` and the export tail length in the UI; range-based comping and punch in/out; edit groups; plugin hosting (needs latency reporting, state persistence, missing-plugin behaviour before it can be claimed); automation; MIDI.
+5. **Publish**: `gh auth login` (interactive, needs the account owner), then `tools/publish.sh` creates the public repo and pushes `main`. Session-1 commits use a placeholder identity ("OpenSession contributors"); from session 2 commits use the local git identity. `tools/bootstrap.sh` handles the SSH→HTTPS submodule rewrite for cloners.
+6. **Nice-to-have after the core is solid**: ~~expose `clickTrackRecordingOnly` and the export tail length in the UI~~ done in session 2 (Transport > Click only while recording; File > Export tail after last clip; both stored in the session, CLI export honours the tail); range-based comping and punch in/out; edit groups; plugin hosting (needs latency reporting, state persistence, missing-plugin behaviour before it can be claimed); automation; MIDI.
+
+## Session 2 log (2026-10-31)
+
+- Added `CLAUDE.md` (agent guide: pointers, build, gotchas, conventions).
+- Removed the stray committed file `"The directory\n…doesn't have write-access"` and traced it to the engine bug in §5.
+- Exposed click-only-while-recording and the export tail (handoff item 6, first part); new session test; suite now 34 / 526, all passing. Not yet checked by hand in the GUI.
 
 ## 4. How to build and test
 
@@ -81,6 +87,8 @@ Session format: `Song.osession/` folder with `session.xml` (Tracktion Edit Value
 Logs: `~/Library/Logs/OpenSession/opensession.log` (also stderr). Engine settings: `~/Library/OpenSession/Settings.xml`.
 
 ## 5. Known problems and caveats
+
+- **Engine returns an error message as a file path** (upstream bug in `getDestinationRecordingFile`, `tracktion_WaveInputDevice.cpp`: missing `tl::unexpected`). With a read-only Audio folder the engine would write a WAV named after the error text in the current directory; session 1 accidentally committed one (removed in session 2). `RecordingController::checkRecordingDestination` prevents it; keep that check ahead of every `record()`. Worth reporting upstream.
 
 - **Engine MIDI rescan aborts takes** (upstream Tracktion Engine behaviour): the default 4-second MIDI hardware rescan rebuilt the Edit's input devices mid-recording and the engine silently deleted the partial file. Fixed in `OpenSessionEngine` by setting the scan interval to 0 (rescan only on demand) and by hard-linking in-progress files into `Audio/Incomplete/` with header repair. Hot-plugging MIDI while recording is therefore not detected until Audio Settings is opened. Worth reporting upstream.
 - **Engine stop listener fires twice** per stop (`recordingStopped` from both `performStop` and `performStopRecording`); `RecordingController` de-duplicates with a flag.

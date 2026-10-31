@@ -84,7 +84,8 @@ public:
         cmdRevealSession, cmdQuit,
         cmdUndo, cmdRedo, cmdSplit, cmdDelete, cmdDuplicate, cmdSelectTake, cmdClipGainUp, cmdClipGainDown, cmdToggleSnap,
         cmdAddTrack, cmdAddStereoTrack, cmdDeleteTrack, cmdArmSelected, cmdMonitorSelected,
-        cmdPlayStop, cmdRecord, cmdToStart, cmdToggleClick, cmdToggleCountIn,
+        cmdPlayStop, cmdRecord, cmdToStart, cmdToggleClick, cmdToggleClickRecordingOnly, cmdToggleCountIn,
+        cmdExportTail0, cmdExportTail2, cmdExportTail5, cmdExportTail10,
         cmdToggleMixer, cmdZoomIn, cmdZoomOut, cmdZoomFit, cmdToggleTakeLanes,
         cmdAudioSettings, cmdRecoverOrphans, cmdCheckMissing, cmdAbout, cmdShowLog
     };

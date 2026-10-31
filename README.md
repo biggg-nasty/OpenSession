@@ -14,7 +14,7 @@ A recording-first, open-source multitrack DAW for musicians who record live inst
 - Mixer with gain, pan, mute, solo, meters, built-in EQ / compressor / reverb, master.
 - Session = a folder (`Song.osession/`) with relative paths, atomic saves, a previous snapshot, autosave recovery, collect-and-save, recovery of recordings orphaned or interrupted by a crash.
 - Export: stereo mix and per-track stems with identical start and length, clipping reported, nothing normalised.
-- A 33-case deterministic self-test suite runs the real engine with synthetic input (`--run-tests`), plus command-line hardware checks (`--smoke-record`, `--soak`, `--measure-latency`).
+- A 34-case deterministic self-test suite runs the real engine with synthetic input (`--run-tests`), plus command-line hardware checks (`--smoke-record`, `--soak`, `--measure-latency`).
 
 Tested platform: macOS 27.0.1 on Apple Silicon with the built-in microphone. No external interface, Windows or Linux has been tested yet; see "Limits".
 

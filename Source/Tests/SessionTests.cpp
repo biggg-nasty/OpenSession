@@ -85,6 +85,36 @@ TEST_SUITE ("opensession")
         CHECK_EQ (doc->getName(), juce::String ("Song"));
     }
 
+    TEST_CASE ("Session: export tail and click-while-recording-only are stored in the session and survive reopening")
+    {
+        Player player (1);
+        TempDir parent ("tail");
+        juce::File folder;
+
+        {
+            Session s ("Tail", parent.dir);
+            CHECK_EQ (s.doc->getExportTailSeconds(), doctest::Approx (SessionDocument::defaultExportTailSeconds));
+            CHECK_FALSE (s.edit().clickTrackRecordingOnly.get());
+
+            s.doc->setExportTailSeconds (5.0);
+            s.edit().clickTrackRecordingOnly = true;
+            CHECK (s.doc->hasUnsavedChanges());
+            REQUIRE (s.doc->save().wasOk());
+            folder = s.doc->getFolder();
+
+            s.doc->setExportTailSeconds (-1.0);
+            CHECK_EQ (s.doc->getExportTailSeconds(), doctest::Approx (0.0));
+            s.doc->setExportTailSeconds (1000.0);
+            CHECK_EQ (s.doc->getExportTailSeconds(), doctest::Approx (SessionDocument::maxExportTailSeconds));
+        }
+
+        juce::String error;
+        auto reopened = SessionDocument::open (getTestEngine(), folder, error);
+        REQUIRE_MESSAGE (reopened != nullptr, error.toStdString());
+        CHECK_EQ (reopened->getExportTailSeconds(), doctest::Approx (5.0));
+        CHECK (reopened->getEdit().clickTrackRecordingOnly.get());
+    }
+
     TEST_CASE ("Session: saves are atomic and keep the previous snapshot")
     {
         Player player (1);

@@ -554,6 +554,7 @@ void MainComponent::exportMix()
         o.destination = f;
         o.sampleRate = engine.getDeviceManager().getSampleRate() > 0 ? engine.getDeviceManager().getSampleRate() : 48000.0;
         o.bitDepth = 24;
+        o.tail = te::TimeDuration::fromSeconds (document->getExportTailSeconds());
         setStatus ("Exporting mix...", false);
         auto r = Exporter::exportStereoMix (document->getEdit(), o);
         setStatus (r.describe(), r.result.failed() || r.clipped);
@@ -579,6 +580,7 @@ void MainComponent::exportStems()
         o.destination = dir.getChildFile (OpenSessionEngine::sanitiseFileName (document->getName()) + "_stems");
         o.sampleRate = engine.getDeviceManager().getSampleRate() > 0 ? engine.getDeviceManager().getSampleRate() : 48000.0;
         o.bitDepth = 24;
+        o.tail = te::TimeDuration::fromSeconds (document->getExportTailSeconds());
         setStatus ("Exporting stems...", false);
         auto results = Exporter::exportStems (document->getEdit(), o);
         setStatus ("Exported " + juce::String (results.size()) + " stems to " + o.destination.getFullPathName(), false);
@@ -689,7 +691,14 @@ juce::PopupMenu MainComponent::getMenuForIndex (int index, const juce::String&)
             add (cmdNew); add (cmdOpen); add (cmdOpenDemo); m.addSeparator();
             add (cmdSave); add (cmdSaveAsCollected); add (cmdClose); m.addSeparator();
             add (cmdImportAudio); m.addSeparator();
-            add (cmdExportMix); add (cmdExportStems); m.addSeparator();
+            add (cmdExportMix); add (cmdExportStems);
+            {
+                juce::PopupMenu tail;
+                for (auto id : { cmdExportTail0, cmdExportTail2, cmdExportTail5, cmdExportTail10 })
+                    tail.addCommandItem (&commandManager, id);
+                m.addSubMenu ("Export tail after last clip", tail, document != nullptr);
+            }
+            m.addSeparator();
             add (cmdRevealSession); add (cmdRecoverOrphans); add (cmdCheckMissing);
            #if ! JUCE_MAC
             m.addSeparator(); add (cmdQuit);
@@ -706,7 +715,7 @@ juce::PopupMenu MainComponent::getMenuForIndex (int index, const juce::String&)
             break;
         case 3:
             add (cmdPlayStop); add (cmdRecord); add (cmdToStart); m.addSeparator();
-            add (cmdToggleClick); add (cmdToggleCountIn);
+            add (cmdToggleClick); add (cmdToggleClickRecordingOnly); add (cmdToggleCountIn);
             break;
         case 4:
             add (cmdToggleMixer); add (cmdToggleTakeLanes); m.addSeparator();
@@ -730,9 +739,21 @@ void MainComponent::getAllCommands (juce::Array<juce::CommandID>& c)
                   cmdRevealSession, cmdQuit,
                   cmdUndo, cmdRedo, cmdSplit, cmdDelete, cmdDuplicate, cmdSelectTake, cmdClipGainUp, cmdClipGainDown, cmdToggleSnap,
                   cmdAddTrack, cmdAddStereoTrack, cmdDeleteTrack, cmdArmSelected, cmdMonitorSelected,
-                  cmdPlayStop, cmdRecord, cmdToStart, cmdToggleClick, cmdToggleCountIn,
+                  cmdPlayStop, cmdRecord, cmdToStart, cmdToggleClick, cmdToggleClickRecordingOnly, cmdToggleCountIn,
+                  cmdExportTail0, cmdExportTail2, cmdExportTail5, cmdExportTail10,
                   cmdToggleMixer, cmdZoomIn, cmdZoomOut, cmdZoomFit, cmdToggleTakeLanes,
                   cmdAudioSettings, cmdRecoverOrphans, cmdCheckMissing, cmdAbout, cmdShowLog });
+}
+
+static double exportTailSecondsFor (juce::CommandID id)
+{
+    switch (id)
+    {
+        case MainComponent::cmdExportTail0:  return 0.0;
+        case MainComponent::cmdExportTail5:  return 5.0;
+        case MainComponent::cmdExportTail10: return 10.0;
+        default:                             return SessionDocument::defaultExportTailSeconds;
+    }
 }
 
 void MainComponent::getCommandInfo (juce::CommandID id, juce::ApplicationCommandInfo& info)
@@ -780,6 +801,14 @@ void MainComponent::getCommandInfo (juce::CommandID id, juce::ApplicationCommand
         case cmdRecord:         set ("Record / Stop recording", "Transport", hasDoc, 'r'); break;
         case cmdToStart:        set ("Go to start", "Transport", hasDoc, juce::KeyPress::returnKey); break;
         case cmdToggleClick:    set ("Click (metronome)", "Transport", hasDoc, 'c'); info.setTicked (hasDoc && document->getEdit().clickTrackEnabled.get()); break;
+        case cmdToggleClickRecordingOnly: set ("Click only while recording", "Transport", hasDoc); info.setTicked (hasDoc && document->getEdit().clickTrackRecordingOnly.get()); break;
+        case cmdExportTail0: case cmdExportTail2: case cmdExportTail5: case cmdExportTail10:
+        {
+            const auto seconds = exportTailSecondsFor (id);
+            set (seconds == 0 ? juce::String ("None (end at last clip)") : juce::String (seconds) + " s", "File", hasDoc);
+            info.setTicked (hasDoc && std::abs (document->getExportTailSeconds() - seconds) < 0.01);
+            break;
+        }
         case cmdToggleCountIn:  set ("One-bar count-in", "Transport", hasDoc); info.setTicked (hasDoc && document->getEdit().getCountInMode() != te::Edit::CountIn::none); break;
         case cmdToggleMixer:    set ("Show mixer", "View", hasDoc, 'm', Mod::commandModifier); info.setTicked (editor != nullptr && editor->isMixerVisible()); break;
         case cmdToggleTakeLanes:set ("Show take lanes", "View", hasDoc); info.setTicked (editor != nullptr && editor->getContext().showTakeLanes); break;
@@ -900,6 +929,10 @@ bool MainComponent::perform (const InvocationInfo& info)
             break;
         case cmdToStart:        if (ctx) ctx->edit.getTransport().setPosition ({}); break;
         case cmdToggleClick:    if (ctx) ctx->edit.clickTrackEnabled = ! ctx->edit.clickTrackEnabled.get(); break;
+        case cmdToggleClickRecordingOnly: if (ctx) ctx->edit.clickTrackRecordingOnly = ! ctx->edit.clickTrackRecordingOnly.get(); break;
+        case cmdExportTail0: case cmdExportTail2: case cmdExportTail5: case cmdExportTail10:
+            if (document != nullptr) document->setExportTailSeconds (exportTailSecondsFor (info.commandID));
+            break;
         case cmdToggleCountIn:  if (ctx) ctx->edit.setCountInMode (ctx->edit.getCountInMode() == te::Edit::CountIn::none ? te::Edit::CountIn::oneBar : te::Edit::CountIn::none); break;
 
         case cmdToggleMixer:    if (editor) editor->setMixerVisible (! editor->isMixerVisible()); break;

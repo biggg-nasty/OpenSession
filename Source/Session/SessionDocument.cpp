@@ -13,6 +13,7 @@ namespace
     const juce::Identifier openSessionTag ("OPENSESSION");
     const juce::Identifier schemaProp ("schemaVersion");
     const juce::Identifier nameProp ("name");
+    const juce::Identifier exportTailProp ("exportTailSeconds");
 
     /** Relative source paths are resolved against the session folder. We write "Audio/x.wav";
         the engine's own helpers may write "../Audio/x.wav" (relative to the session.xml node),
@@ -313,6 +314,22 @@ juce::String SessionDocument::getName() const
 
     auto n = folder.getFileName();
     return n.endsWith (folderExtension) ? n.dropLastCharacters ((int) std::strlen (folderExtension)) : n;
+}
+
+double SessionDocument::getExportTailSeconds() const
+{
+    if (edit != nullptr)
+        if (auto os = edit->state.getChildWithName (openSessionTag); os.hasProperty (exportTailProp))
+            return juce::jlimit (0.0, maxExportTailSeconds, (double) os.getProperty (exportTailProp));
+
+    return defaultExportTailSeconds;
+}
+
+void SessionDocument::setExportTailSeconds (double seconds)
+{
+    if (edit != nullptr)
+        edit->state.getOrCreateChildWithName (openSessionTag, nullptr)
+            .setProperty (exportTailProp, juce::jlimit (0.0, maxExportTailSeconds, seconds), nullptr);
 }
 
 bool SessionDocument::hasUnsavedChanges() const

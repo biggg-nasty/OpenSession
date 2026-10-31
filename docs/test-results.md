@@ -7,8 +7,8 @@ _Run on 2026-10-31. Machine: MacBook Pro (arm64), macOS 27.0.1, Apple clang 21, 
 The suite runs the real engine with its `HostedAudioDeviceInterface`: we push synthetic input buffers through the actual recording pipeline, files are written to a temporary session folder, and results are read back from disk. Log: `logs/tests5.log` (local).
 
 ```
-[doctest] test cases:  33 |  33 passed | 0 failed | 0 skipped
-[doctest] assertions: 516 | 516 passed | 0 failed |
+[doctest] test cases:  34 |  34 passed | 0 failed | 0 skipped
+[doctest] assertions: 526 | 526 passed | 0 failed |
 [doctest] Status: SUCCESS!
 ```
 
@@ -40,6 +40,7 @@ The suite runs the real engine with its `HostedAudioDeviceInterface`: we push sy
 | Import copies into the session | Session: importing an audio file… | pass |
 | Missing file detection | Session: missing audio is detected and the session still opens | pass |
 | Interrupted-recording recovery (unfinalised header) | Session: a WAV whose header was never finalised… ; Session: an orphaned recording… | pass; header repaired, audio intact within −80 dBFS, placed at BWAV time |
+| Export tail and click-while-recording-only persist with the session | Session: export tail and click-while-recording-only are stored in the session and survive reopening | pass (5 s tail and flag restored; tail clamped to 0..30 s) |
 | Deleting a region never erases the source | Session: deleting a clip from the timeline never deletes its recording | pass |
 
 ## 2. Hardware (built-in microphone, this Mac)
@@ -75,3 +76,4 @@ $APP --export-mix scratch/Smoke.osession /tmp/smoke-mix.wav && afplay /tmp/smoke
 2. **Header-only leftover files** (`…_01.wav`, 784 bytes, 0 audio) next to the real take: the engine opens a recording file more than once while preparing. Fix: unreferenced zero-data WAVs created during the pass are removed at stop; orphan scans ignore zero-data files.
 3. **Unsaved-change tracking** in the engine is asynchronous (undo-manager change message); we added synchronous ValueTree dirty tracking so autosave and "save changes?" prompts are reliable.
 4. **Relative path style mismatch** (`../Audio/x.wav` vs `Audio/x.wav`) between the engine's helper and ours; the resolver accepts both.
+5. **Error message written as a file name.** An early run of the unwritable-folder test left a WAV in the working directory named `The directory\n…\n doesn't have write-access`. Cause (upstream, `tracktion_WaveInputDevice.cpp`, `getDestinationRecordingFile`): the error branches `return` a `juce::String` from a function returning `tl::expected<juce::File, juce::String>` without `tl::unexpected`, so the message converts implicitly to a `juce::File` and is treated as success. Our `checkRecordingDestination` (writability probe before every `record()`) prevents the engine from reaching that path; the current suite does not recreate the file. Worth reporting upstream.

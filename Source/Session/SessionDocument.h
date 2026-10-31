@@ -48,6 +48,12 @@ public:
     te::Edit& getEdit() noexcept                            { return *edit; }
     te::Engine& getEngine() noexcept                        { return engine; }
     juce::String getName() const;
+
+    /** Silence appended after the last clip end when exporting (captures reverb/release).
+        Stored in the session; 2 s when unset, clamped to 0..maxExportTailSeconds. */
+    static constexpr double defaultExportTailSeconds = 2.0, maxExportTailSeconds = 30.0;
+    double getExportTailSeconds() const;
+    void setExportTailSeconds (double);
     juce::File getFolder() const                            { return folder; }
     juce::File getSessionFile() const                       { return folder.getChildFile ("session.xml"); }
     juce::File getManifestFile() const                      { return folder.getChildFile ("manifest.json"); }

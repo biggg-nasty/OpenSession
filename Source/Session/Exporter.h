@@ -11,7 +11,7 @@ namespace opensession
 {
 
 /** Export policy (documented in docs/recording-behavior.md, "Export"):
-    - Range: timeline 0 to the end of the last clip, plus a fixed tail (default 2 s) so
+    - Range: timeline 0 to the end of the last clip, plus a tail (default 2 s, chosen per session) so
       reverb/compressor release is captured. Stems use exactly the same range, so every stem
       starts at timeline zero and has identical length (leading silence preserved).
     - Mix: all unmuted tracks through their inserts and faders, then the master chain.
