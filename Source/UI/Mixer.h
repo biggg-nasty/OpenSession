@@ -45,7 +45,7 @@ private:
     te::AudioTrack* track;   // nullptr = master
 
     juce::Label nameLabel;
-    juce::TextButton eqButton { "EQ" }, compButton { "Comp" }, reverbButton { "Verb" }, fxEditButton { "FX..." };
+    juce::TextButton eqButton { "EQ" }, compButton { "CMP" }, reverbButton { "REV" }, fxEditButton { "FX..." };
     juce::Slider fader, pan;
     juce::TextButton muteButton { "M" }, soloButton { "S" };
     LevelMeterComponent meter { true };

@@ -44,10 +44,9 @@ TransportBar::TransportBar (SessionContext& c) : ctx (c)
     tempoLabel.setJustificationType (juce::Justification::centredRight);
 
     tempoSlider.setSliderStyle (juce::Slider::IncDecButtons);
-    tempoSlider.setTextBoxStyle (juce::Slider::TextBoxLeft, false, 56, 24);
+    tempoSlider.setTextBoxStyle (juce::Slider::TextBoxLeft, false, 78, 24);
     tempoSlider.setRange (20.0, 300.0, 0.1);
     tempoSlider.setValue (ctx.edit.tempoSequence.getTempo (0)->getBpm(), juce::dontSendNotification);
-    tempoSlider.setTextValueSuffix (" bpm");
     tempoSlider.onValueChange = [this]
     {
         // Changing tempo only moves the grid and the click; audio clips stay exactly where
@@ -143,7 +142,7 @@ void TransportBar::resized()
     barsLabel.setBounds (r.removeFromLeft (110));       r.removeFromLeft (12);
 
     tempoLabel.setBounds (r.removeFromLeft (50));
-    tempoSlider.setBounds (r.removeFromLeft (130).withHeight (h));  r.removeFromLeft (12);
+    tempoSlider.setBounds (r.removeFromLeft (150).withHeight (h));  r.removeFromLeft (12);
 
     clickButton.setBounds (r.removeFromLeft (60));      r.removeFromLeft (4);
     countInButton.setBounds (r.removeFromLeft (80));    r.removeFromLeft (4);

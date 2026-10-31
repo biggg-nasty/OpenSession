@@ -136,7 +136,13 @@ private:
             }
         }
 
-        if (client.getAndClearOverload())
+        // Only trust the overload flag when a channel really reached full scale this tick:
+        // the measurer's flag can read true before any audio has been measured.
+        bool hot = false;
+        for (int ch = 0; ch < numChannels; ++ch)
+            hot = hot || levelsDb[(size_t) ch] >= -0.2f;
+
+        if (client.getAndClearOverload() && hot)
             overloaded = true;
 
         repaint();
